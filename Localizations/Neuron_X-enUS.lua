@@ -225,6 +225,8 @@ L["Override Bar"] = true
 L["No Extra Bar"] = true
 L["Extra Bar"] = true
 
+L["Vehicle Exit Bar"] = true
+
 L["Custom States"] = true
 
 
@@ -429,7 +431,7 @@ L["Pet Bar"] = true
 L["Menu Bar"] = true
 
 L["Track Character XP"] = true
-L["Track Artifact Power"] = true
+L["Track Azerite Power"] = true
 L["Track Honor Points"] = true
 
 L["Width"] = true
