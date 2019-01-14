@@ -1,5 +1,24 @@
 ﻿--Neuron, a World of Warcraft® user interface addon.
 
+--This file is part of Neuron.
+--
+--Neuron is free software: you can redistribute it and/or modify
+--it under the terms of the GNU General Public License as published by
+--the Free Software Foundation, either version 3 of the License, or
+--(at your option) any later version.
+--
+--Neuron is distributed in the hope that it will be useful,
+--but WITHOUT ANY WARRANTY; without even the implied warranty of
+--MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+--GNU General Public License for more details.
+--
+--You should have received a copy of the GNU General Public License
+--along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+--
+--Copyright for portions of Neuron are held by Connor Chenoweth,
+--a.k.a Maul, 2014 as part of his original project, Ion. All other
+--copyrights for Neuron are held by Britt Yazel, 2017-2018.
+
 local L = LibStub("AceLocale-3.0"):NewLocale("Neuron", "enUS", true)
 
 if not L then return end
@@ -559,9 +578,9 @@ As a side effect of the above change, we have fully rebuilt the /neuron function
 L["Bar Configuration"] = true
 L["Bar_Configuration_FAQ"] = [[
 Bar Editor Mode
-To enter the Bar Editor, left click on the NEURON icon or type "/neuron config" into the chat window. You will know that the mode is enabled because any hidden bars (IE the Pet or Extra Action Bars) will be displayed and the bars will display a highlight & name on mouse over.
+To enter the Bar Editor, left click on the Neuron icon or type "/neuron config" into the chat window. You will know that the mode is enabled because any hidden bars (IE the Pet or Extra Action Bars) will be displayed and the bars will display a highlight & name on mouse over.
 
-To exit the Bar Editor Mode, left click the NEURON icon, enter the text line command, or hit the Escape key. Once you leave this mode, any bars set to hidden will disappear once again.
+To exit the Bar Editor Mode, left click the Neuron icon, enter the text line command, or hit the Escape key. Once you leave this mode, any bars set to hidden will disappear once again.
 
 Bar Configuration Menu
 To open the Bar Configuration Menu, right click on any bar when the Bar Editor Mode is enabled. The first time the menu is opened it will be on the general options tab. If it is opened a second time after being closed, it will open to the last displayed tab.
@@ -663,7 +682,7 @@ L["Flyout"] = true
 L["Flyout_FAQ"] = [[
 Flyout Menus
 
-Neuron allows for the creation of flyout menus of spells, items or companions. It accomplishes this by adding a new macro command and building the menu based on several options. The following are the instructions on how to go about making a custom flyout menu via the NEURON Button Macro Editor:
+Neuron allows for the creation of flyout menus of spells, items or companions. It accomplishes this by adding a new macro command and building the menu based on several options. The following are the instructions on how to go about making a custom flyout menu via the Neuron Button Macro Editor:
 
 Format: /flyout <type>:<keyword>:<shape>:<flyout anchor point>:<macro button anchor point>:<columns|radius>:<click|mouse>:<show/hide flyout arrow>
 

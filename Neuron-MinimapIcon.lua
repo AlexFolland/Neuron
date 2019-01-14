@@ -1,12 +1,30 @@
---Neuron , a World of Warcraft® user interface addon.
+--Neuron, a World of Warcraft® user interface addon.
 
---Neuron MinimapIcon makes use of LibDBIcon and LibDataBroker to make sure we play nicely with LDB addons and to simplify dramatically the minimap button
+--This file is part of Neuron.
+--
+--Neuron is free software: you can redistribute it and/or modify
+--it under the terms of the GNU General Public License as published by
+--the Free Software Foundation, either version 3 of the License, or
+--(at your option) any later version.
+--
+--Neuron is distributed in the hope that it will be useful,
+--but WITHOUT ANY WARRANTY; without even the implied warranty of
+--MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+--GNU General Public License for more details.
+--
+--You should have received a copy of the GNU General Public License
+--along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+--
+--Copyright for portions of Neuron are held by Connor Chenoweth,
+--a.k.a Maul, 2014 as part of his original project, Ion. All other
+--copyrights for Neuron are held by Britt Yazel, 2017-2018.
 
-local NEURON = Neuron
+
+
+--Neuron MinimapIcon makes use of LibDBIcon and LibDataBroker to make sure we play
+--nicely with LDB addons and to simplify dramatically the minimap button
+
 local DB
-
-NEURON.NeuronMinimapIcon = NEURON:NewModule("NeuronMinimapIcon")
-local NeuronMinimapIcon = NEURON.NeuronMinimapIcon
 
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 
@@ -16,22 +34,17 @@ local icon
 
 
 -------------------------------------------------------------------------
---------------------Start of Functions-----------------------------------
 -------------------------------------------------------------------------
+function Neuron:Minimap_IconInitialize()
 
---- **OnInitialize**, which is called directly after the addon is fully loaded.
---- do init tasks here, like loading the Saved Variables
---- or setting up slash commands.
-function NeuronMinimapIcon:OnInitialize()
-
-    DB = NEURON.db.profile
+    DB = Neuron.db.profile
 
     neuronIconLDB = LibStub("LibDataBroker-1.1"):NewDataObject("Neuron", {
         type = "launcher",
         text = "Neuron",
         icon = "Interface\\AddOns\\Neuron\\Images\\static_icon",
-        OnClick = function(frame, button) self:OnClickHandler(frame, button) end,
-        OnTooltipShow = function(tooltip) self:TooltipHandler(tooltip) end,
+        OnClick = function(frame, button) Neuron:Minimap_OnClickHandler(frame, button) end,
+        OnTooltipShow = function(tooltip) Neuron:Minimap_TooltipHandler(tooltip) end,
     })
 
     icon = LibStub("LibDBIcon-1.0")
@@ -39,25 +52,10 @@ function NeuronMinimapIcon:OnInitialize()
 
 end
 
---- **OnEnable** which gets called during the PLAYER_LOGIN event, when most of the data provided by the game is already present.
---- Do more initialization here, that really enables the use of your addon.
---- Register Events, Hook functions, Create Frames, Get information from
---- the game that wasn't available in OnInitialize
-function NeuronMinimapIcon:OnEnable()
-end
-
---- **OnDisable**, which is only called when your addon is manually being disabled.
---- Unhook, Unregister Events, Hide frames that you created.
---- You would probably only use an OnDisable if you want to
---- build a "standby" mode, or be able to toggle modules on/off.
-function NeuronMinimapIcon:OnDisable()
-
-end
-
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 
-function NeuronMinimapIcon:OnClickHandler(frame, button)
+function Neuron:Minimap_OnClickHandler(frame, button)
 
     if (InCombatLockdown()) then
         return
@@ -66,18 +64,18 @@ function NeuronMinimapIcon:OnClickHandler(frame, button)
     PlaySound(SOUNDKIT.IG_CHAT_SCROLL_DOWN)
 
     if (button == "LeftButton" and not IsShiftKeyDown()) then
-        NEURON:ToggleBarEditMode(true)
+        Neuron:ToggleBarEditMode(true)
     elseif (button == "RightButton" and not IsShiftKeyDown()) then
-        NEURON:ToggleButtonEditMode(true)
+        Neuron:ToggleButtonEditMode(true)
     elseif (button == "LeftButton" and IsShiftKeyDown()) then
-        NEURON:ToggleBindingMode(true)
+        Neuron:ToggleBindingMode(true)
     elseif (button == "RightButton" and IsShiftKeyDown()) then
-        NEURON:ToggleMainMenu()
+        Neuron:ToggleMainMenu()
     end
 
 end
 
-function NeuronMinimapIcon:TooltipHandler(tooltip)
+function Neuron:Minimap_TooltipHandler(tooltip)
 
     tooltip:SetText("Neuron", 1, 1, 1)
     tooltip:AddLine(L["Left-Click to Configure Bars"])
@@ -89,7 +87,7 @@ function NeuronMinimapIcon:TooltipHandler(tooltip)
 
 end
 
-function NeuronMinimapIcon:ToggleIcon()
+function Neuron:Minimap_ToggleIcon()
 
     if DB.NeuronIcon.hide == false then
         icon:Hide("Neuron")

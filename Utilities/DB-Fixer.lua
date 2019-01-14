@@ -1,12 +1,29 @@
+--Neuron, a World of Warcraft® user interface addon.
 
-local NEURON = Neuron
-
+--This file is part of Neuron.
+--
+--Neuron is free software: you can redistribute it and/or modify
+--it under the terms of the GNU General Public License as published by
+--the Free Software Foundation, either version 3 of the License, or
+--(at your option) any later version.
+--
+--Neuron is distributed in the hope that it will be useful,
+--but WITHOUT ANY WARRANTY; without even the implied warranty of
+--MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+--GNU General Public License for more details.
+--
+--You should have received a copy of the GNU General Public License
+--along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+--
+--Copyright for portions of Neuron are held by Connor Chenoweth,
+--a.k.a Maul, 2014 as part of his original project, Ion. All other
+--copyrights for Neuron are held by Britt Yazel, 2017-2018.
 
 ------------------------------------------------------------
 --------------------Data Fixing Functions-------------------
 ------------------------------------------------------------
 
-function NEURON:DBFixer(profile, oldDBVersion) --converted objectTable from a single string to a table of ints, this fixes the table on login
+function Neuron:DBFixer(profile, oldDBVersion) --converted objectTable from a single string to a table of ints, this fixes the table on login
 
 
     ---Added on 8/25/2018. Remove at some point in the future
@@ -38,7 +55,7 @@ function NEURON:DBFixer(profile, oldDBVersion) --converted objectTable from a si
         profile["NeuronCDB"]["xbarFirstRun"] = nil
 
         oldDBVersion = 1.1 --increment oldDBVersion up to the latest that this set of code fixes
-        NEURON:Print("Neuron database migrated to version " .. 1.1)
+        Neuron:Print("Neuron database migrated to version " .. 1.1)
     end
 
 
@@ -49,9 +66,9 @@ function NEURON:DBFixer(profile, oldDBVersion) --converted objectTable from a si
 
         for k1,v1 in pairs(profile.NeuronGDB) do
 
-           if k1 == "bars" or k1 == "buttons" or k1 == "throttle" or k1 == "timerLimit" or k1 == "snapToTol" or k1 == "blizzbar" or k1 == "firstRun" or k1 == "NeuronIcon" then
-               profile[k1] = v1
-           end
+            if k1 == "bars" or k1 == "buttons" or k1 == "throttle" or k1 == "timerLimit" or k1 == "snapToTol" or k1 == "blizzbar" or k1 == "firstRun" or k1 == "NeuronIcon" then
+                profile[k1] = v1
+            end
 
         end
 
@@ -61,26 +78,105 @@ function NEURON:DBFixer(profile, oldDBVersion) --converted objectTable from a si
             end
         end
 
+        if not profile.bars then
+            profile.bars = {}
+        end
+
         for k1,v1 in pairs(profile.NeuronCDB.bars) do
+
+            if not profile.bars[k1] then
+                profile.bars[k1] = {}
+            end
 
             for k2,v2 in pairs(v1) do
                 profile.bars[k1][k2] = v2
             end
 
+        end
 
+        if not profile.buttons then
+            profile.buttons = {}
         end
 
         for k1,v1 in pairs(profile.NeuronCDB.buttons) do
+
+            if not profile.buttons[k1] then
+                profile.buttons[k1] = {}
+            end
+
             for k2,v2 in pairs(v1) do
                 profile.buttons[k1][k2] = v2
             end
         end
 
-        profile.NeuronGDB = nil
-        profile.NeuronCDB = nil
 
         oldDBVersion = 1.2 --increment oldDBVersion up to the latest that this set of code fixes
-        NEURON:Print("Neuron database migrated to version " .. 1.2)
+        Neuron:Print("Neuron database migrated to version " .. 1.2)
+
+    end
+
+
+    ---Added on 12/19/2018. Remove at some point in the future
+    ---The purpose of this migrate is to get rid of the GDB/CDB divide
+    ---this code takes separate bar and button tables, and nests the buttons into their corresponding bars
+    if oldDBVersion < 1.3 then
+
+        local oldBarDBNames = {"bars", "zoneabilitybar", "extrabar", "bagbar", "statusbar", "exitbar", "menubar", "petbar"}
+
+        local oldBtnDBNames = {"buttons", "zoneabilitybtn", "extrabtn", "bagbtn", "statusbtn", "exitbtn", "menubtn", "petbtn"}
+
+        local NewBarDBNames = {"ActionBar", "ZoneAbilityBar", "ExtraBar", "BagBar", "StatusBar", "ExitBar", "MenuBar", "PetBar"}
+
+
+
+        --copy over all the bar data into the new bar tables
+        for i, barDBName in ipairs(oldBarDBNames) do
+
+            if profile[barDBName] then
+
+                for k,v in pairs(profile[barDBName]) do
+
+                    if not profile[NewBarDBNames[i]] then
+                        profile[NewBarDBNames[i]] = {}
+                    end
+
+                    profile[NewBarDBNames[i]][k] = v
+
+                end
+            end
+        end
+
+
+        --copy over all of the button data to their corresponding bars
+        for i, barDBName in ipairs(NewBarDBNames) do
+
+            if profile[oldBarDBNames[i]] then
+
+                for j, v2 in ipairs(profile[barDBName]) do
+
+                    for k, v3 in ipairs(v2.objectList) do
+
+                        if not profile[barDBName][j].buttons then
+                            profile[barDBName][j].buttons = {}
+                        end
+
+                        if profile[oldBtnDBNames[i]][v3] then
+	                        table.insert(profile[barDBName][j].buttons, CopyTable(profile[oldBtnDBNames[i]][v3]))
+                        end
+
+
+                    end
+
+                end
+
+            end
+
+        end
+
+
+        oldDBVersion = 1.3 --increment oldDBVersion up to the latest that this set of code fixes
+        Neuron:Print("Neuron database migrated to version " .. 1.3)
+
 
     end
 

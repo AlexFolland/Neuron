@@ -1,52 +1,38 @@
-﻿--Neuron , a World of Warcraft® user interface addon.
+--Neuron, a World of Warcraft® user interface addon.
 
+--This file is part of Neuron.
+--
+--Neuron is free software: you can redistribute it and/or modify
+--it under the terms of the GNU General Public License as published by
+--the Free Software Foundation, either version 3 of the License, or
+--(at your option) any later version.
+--
+--Neuron is distributed in the hope that it will be useful,
+--but WITHOUT ANY WARRANTY; without even the implied warranty of
+--MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+--GNU General Public License for more details.
+--
+--You should have received a copy of the GNU General Public License
+--along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+--
+--Copyright for portions of Neuron are held by Connor Chenoweth,
+--a.k.a Maul, 2014 as part of his original project, Ion. All other
+--copyrights for Neuron are held by Britt Yazel, 2017-2018.
 
-local NEURON = Neuron
+local DEFAULT_VIRTUAL_KEY = "LeftButton"
+local NEURON_VIRTUAL_KEY = "Hotkey"
 
+local VIRTUAL_KEY_LIST = {
+	DEFAULT_VIRTUAL_KEY,
+	NEURON_VIRTUAL_KEY
+}
 
-NEURON.NeuronBinder = NEURON:NewModule("Binder", "AceEvent-3.0", "AceHook-3.0")
-local NeuronBinder = NEURON.NeuronBinder
+local NeuronBinder = {}
+Neuron.NeuronBinder = NeuronBinder
+
 
 
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
-
-
-local BINDIndex = NEURON.BINDIndex
-
-
-
-
------------------------------------------------------------------------------
---------------------------INIT FUNCTIONS-------------------------------------
------------------------------------------------------------------------------
-
---- **OnInitialize**, which is called directly after the addon is fully loaded.
---- do init tasks here, like loading the Saved Variables
---- or setting up slash commands.
-function NeuronBinder:OnInitialize()
-
-
-end
-
---- **OnEnable** which gets called during the PLAYER_LOGIN event, when most of the data provided by the game is already present.
---- Do more initialization here, that really enables the use of your addon.
---- Register Events, Hook functions, Create Frames, Get information from
---- the game that wasn't available in OnInitialize
-function NeuronBinder:OnEnable()
-
-end
-
-
---- **OnDisable**, which is only called when your addon is manually being disabled.
---- Unhook, Unregister Events, Hide frames that you created.
---- You would probably only use an OnDisable if you want to
---- build a "standby" mode, or be able to toggle modules on/off.
-function NeuronBinder:OnDisable()
-
-end
-
-
-
 
 
 --- Returns a list of the available spell icon filenames for use in macros
@@ -99,7 +85,7 @@ function NeuronBinder:GetBindkeyList(button)
 end
 
 
---- Returns the text value of a keybind 
+--- Returns the text value of a keybind
 -- @param key: The key to look up
 -- @return keytext: The text value for the key
 function NeuronBinder:GetKeyText(key)
@@ -151,10 +137,16 @@ function NeuronBinder:ClearBindings(button, key)
 		local keytext = NeuronBinder:GetKeyText(key)
 		button.keys.hotKeyText = button.keys.hotKeyText:gsub(keytext..":", "")
 	else
-		local bindkey = "CLICK "..button:GetName()..":LeftButton"
+		local bindCmdPrefix = "CLICK " .. button:GetName()
 
-		while (GetBindingKey(bindkey)) do
-			SetBinding(GetBindingKey(bindkey), nil)
+		---clear bindings for all virtual keys (LeftButton, Hotkey, ...)
+		---using the bindCmdPrefix and concatenating it with each virtual key
+		for _, virtualKey in ipairs(VIRTUAL_KEY_LIST) do
+			local bindCmd = bindCmdPrefix .. ":" .. virtualKey
+
+			while (GetBindingKey(bindCmd)) do
+				SetBinding(GetBindingKey(bindCmd), nil)
+			end
 		end
 
 		ClearOverrideBindings(button)
@@ -190,18 +182,19 @@ end
 function NeuronBinder:ApplyBindings(button)
 	button:SetAttribute("hotkeypri", button.keys.hotKeyPri)
 
-	------weird fix during the database migration with these values not getting assigned
-	if not button.keys.hotKeys then
-		button.keys.hotKeys = ":"
-	end
+	local virtualKey
 
-	if not button.keys.hotKeyText then
-		button.keys.hotKeyText = ":"
+	---checks if the button is a Neuron action or a special Blizzard action (such as a zone ability)
+	---this is necessary because Blizzard buttons usually won't work and can give very weird results
+	---if clicked with a virtual key other than the default "LeftButton"
+	if (button.class == "ActionBar") then
+		virtualKey = NEURON_VIRTUAL_KEY
+	else
+		virtualKey = DEFAULT_VIRTUAL_KEY
 	end
-	------------------------------
 
 	if (button:IsVisible() or button:GetParent():GetAttribute("concealed")) then
-		gsub(button.keys.hotKeys, "[^:]+", function(key) SetOverrideBindingClick(button, button.keys.hotKeyPri, key, button:GetName()) end)
+		gsub(button.keys.hotKeys, "[^:]+", function(key) SetOverrideBindingClick(button, button.keys.hotKeyPri, key, button:GetName(), virtualKey) end)
 	end
 
 	button:SetAttribute("hotkeys", button.keys.hotKeys)
@@ -217,6 +210,7 @@ function NeuronBinder:ApplyBindings(button)
 	if (GetCurrentBindingSet() > 0 and GetCurrentBindingSet() < 3) then SaveBindings(GetCurrentBindingSet()) end
 end
 
+
 --- Processes the change to a key bind  (i think)
 -- @param button: The button to set keybinding for
 -- @param key: The key to be used
@@ -227,9 +221,9 @@ function NeuronBinder:ProcessBinding(binder, key, button)
 	end
 
 	if (key == "ESCAPE") then
-		NeuronBinder:ClearBindings( button)
+		NeuronBinder:ClearBindings(button)
 	elseif (key) then
-		for _,binder in pairs(BINDIndex) do
+		for _,binder in pairs(Neuron.BINDIndex) do
 			if (button ~= binder.button and binder.button.keys and not binder.button.keys.hotKeyLock) then
 				binder.button.keys.hotKeys:gsub("[^:]+", function(binding) if (key == binding) then NeuronBinder:ClearBindings(binder.button, binding) NeuronBinder:ApplyBindings(binder.button) end end)
 			end
@@ -242,7 +236,6 @@ function NeuronBinder:ProcessBinding(binder, key, button)
 		NeuronBinder:OnEnter(binder)
 	end
 
-	button:SaveData(button)
 end
 
 
@@ -279,7 +272,7 @@ end
 --- OnEnter Event handler
 function NeuronBinder:OnEnter(binder)
 
-    local button = binder.button
+	local button = binder.button
 
 	local name = binder.bindType:gsub("^%l", string.upper).. " " .. button.id --default to "button #" in the case that a button is empty
 
@@ -303,10 +296,10 @@ function NeuronBinder:OnEnter(binder)
 	GameTooltip:SetOwner(binder, "ANCHOR_RIGHT")
 
 	GameTooltip:ClearLines()
-    GameTooltip:SetText("Neuron", 1.0, 1.0, 1.0)
+	GameTooltip:SetText("Neuron", 1.0, 1.0, 1.0)
 	GameTooltip:AddLine(L["Keybind_Tooltip_1"] .. ": |cffffffff" .. name  .. "|r")
 	GameTooltip:AddLine(L["Keybind_Tooltip_2"] .. ": |cffffffff" .. NeuronBinder:GetBindkeyList(button) .. "|r")
-    GameTooltip:AddLine(" ")
+	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine(L["Keybind_Tooltip_3"])
 	GameTooltip:AddLine(L["Keybind_Tooltip_4"])
 	GameTooltip:AddLine(L["Keybind_Tooltip_5"])
@@ -318,13 +311,13 @@ end
 --- OnLeave Event handler
 function NeuronBinder:OnLeave(binder)
 	binder.select:Hide()
-    GameTooltip:Hide()
+	GameTooltip:Hide()
 end
 
 
 --- OnUpdate Event handler
 function NeuronBinder:OnUpdate(binder)
-	if(NEURON.PEW) then
+	if(Neuron.enteredWorld) then
 		if (binder:IsMouseOver()) then
 			binder:EnableKeyboard(true)
 		else
@@ -418,7 +411,7 @@ function NeuronBinder:OnMouseWheel(binder, delta)
 	NeuronBinder:ProcessBinding(binder, key, binder.button)
 end
 
-function NeuronBinder:CreateBindFrame(button, index)
+function NeuronBinder:CreateBindFrame(button)
 	local binder = CreateFrame("Button", button:GetName().."BindFrame", button, "NeuronBindFrameTemplate")
 
 	setmetatable(binder, { __index = CreateFrame("Button") })
@@ -443,7 +436,7 @@ function NeuronBinder:CreateBindFrame(button, index)
 	button:SetAttribute("hotkeypri", button.keys.hotKeyPri)
 	button:SetAttribute("hotkeys", button.keys.hotKeys)
 
-	BINDIndex[button.class..index] = binder
+	Neuron.BINDIndex[button.class..button.bar.DB.id.."_"..button.id] = binder
 
 	binder:Hide()
 end
