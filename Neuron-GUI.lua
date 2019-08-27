@@ -56,6 +56,7 @@ local chkOptions = {
 	[15] = { "TOOLTIPS", L["Enable Tooltips"], 1, "ToolTipSet" },
 	[16] = { "TOOLTIPS", L["Enhanced"], 0.9, "ToolTipSet", "enhanced" },
 	[17] = { "TOOLTIPS", L["Hide in Combat"], 0.9, "ToolTipSet", "combat" },
+	[18] = { "BORDERSTYLE", L["Show Border Style"], 1, "SetBorderStyle"},
 }
 
 local adjOptions = {
@@ -86,7 +87,7 @@ local swatchOptions = {
 	[7] = { "AURAIND", L["Buff/Debuff Aura Border"], 1, "AuraIndSet", true, true, "buffcolor", "debuffcolor" },
 }
 
-local specoveride = GetActiveSpecGroup() or 1
+local specoveride = Neuron.activeSpec
 
 local updater
 
@@ -137,10 +138,14 @@ function NeuronGUI:OnEnable()
 	updater.elapsed = 0
 	updater:Hide()
 
-	NeuronGUI:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 	NeuronGUI:RegisterEvent("ADDON_LOADED")
 
-	LibStub("AceConfig-3.0"):RegisterOptionsTable("Neuron-GUI", NeuronGUI.target_options)
+	if not Neuron.isWoWClassic then
+		NeuronGUI:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+	end
+
+
+	--LibStub("AceConfig-3.0"):RegisterOptionsTable("Neuron-GUI", NeuronGUI.target_options)
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("Neuron-Flyout", NeuronGUI.flyout_options)
 
 end
@@ -805,7 +810,7 @@ function NeuronGUI:UpdateBarGUI(newBar)
 	NeuronGUI:VisEditorScrollFrameUpdate()
 	NeuronGUI:SecondaryPresetsScrollFrameUpdate()
 
-	LibStub("AceConfigDialog-3.0"):Open("Neuron-GUI", NBE.ACEmenu)
+	--LibStub("AceConfigDialog-3.0"):Open("Neuron-GUI", NBE.ACEmenu)
 
 end
 
@@ -930,13 +935,13 @@ function NeuronGUI:BarEditor_OnLoad(frame)
 	f:SetWidth(140)
 	f:SetHeight(28)
 	f:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -28, -8.5)
-	f:SetScript("OnClick", function(self) TabsOnClick(self, true) end)
+	--f:SetScript("OnClick", function(self) TabsOnClick(self, true) end)
 	f:SetFrameLevel(frame:GetFrameLevel()+1)
 	f:SetChecked(nil)
-	f.text:SetText(L["Spell Target Options"])
+	--f.text:SetText(L["Spell Target Options"])
 	frame.tab3 = f; frame.tabs[f] = frame.targetoptions
 
-	f = CreateFrame("CheckButton", nil, frame, "NeuronCheckButtonTemplate1")
+	local f = CreateFrame("CheckButton", nil, frame, "NeuronCheckButtonTemplate1")
 	f:SetWidth(140)
 	f:SetHeight(28)
 	f:SetPoint("RIGHT", frame.tab3, "LEFT", -5, 0)
@@ -2506,7 +2511,7 @@ end
 function NeuronGUI:specUpdateIcon(button,state)
 
 	local texture = "INTERFACE\\ICONS\\INV_MISC_QUESTIONMARK"
-	local buttonSpec = GetSpecialization()
+	local buttonSpec = Neuron.activeSpec
 	local data = button.DB[specoveride][state]
 
 	if (button.bar.data.multiSpec and specoveride ~= buttonSpec) then
@@ -2542,7 +2547,7 @@ function NeuronGUI:MacroEditorUpdate()
 	if (Neuron.CurrentObject and Neuron.CurrentObject.objType == "ACTIONBUTTON") then
 		local button, NBTNE = Neuron.CurrentObject, NeuronButtonEditor
 		local state = button.bar.handler:GetAttribute("fauxstate")
-		local buttonSpec = GetSpecialization()
+		local buttonSpec = Neuron.activeSpec
 
 		if (button.bar.data.multiSpec) then
 			buttonSpec = specoveride
@@ -2553,7 +2558,7 @@ function NeuronGUI:MacroEditorUpdate()
 			NBTNE["spec"..buttonSpec]:SetChecked(true)
 
 			--Sets current spec marker to proper tab
-			NBTNE.activespc:SetParent(NBTNE["spec"..GetSpecialization()])
+			NBTNE.activespc:SetParent(NBTNE["spec"..Neuron.activeSpec])
 			NBTNE.activespc:SetPoint("LEFT")
 			NBTNE.spec1:Show()
 			NBTNE.spec2:Show()
@@ -2633,7 +2638,9 @@ function NeuronGUI:ButtonEditorUpdate(reset)
 
 		NeuronButtonEditor.macroicon.icon:SetTexture("")
 
-		specoveride = GetSpecialization() or 1 --GetActiveSpecGroup()
+
+		specoveride = Neuron.activeSpec
+
 	end
 
 	NeuronGUI:ActionListScrollFrameUpdate()
@@ -2714,7 +2721,7 @@ function NeuronGUI:macroButton_Changed(frame, button, down)
 	local state = object.bar.handler:GetAttribute("fauxstate")
 
 	--handler to check if viewing non current spec button settings
-	if (specoveride ~= GetSpecialization()) then
+	if (specoveride ~= Neuron.activeSpec) then
 		data = object.DB[buttonSpec][state]
 	end
 
@@ -2747,7 +2754,7 @@ function NeuronGUI:macroNameEdit_OnTextChanged(frame)
 		return
 	end
 
-	if (strlen(frame:GetText()) > 0) then
+	if (string.len(frame:GetText()) > 0) then
 		frame.text:Hide()
 	end
 
@@ -2763,7 +2770,7 @@ function NeuronGUI:macroNameEdit_OnTextChanged(frame)
 
 		button.bar:UpdateObjectData()
 
-	elseif (strlen(frame:GetText()) <= 0) then
+	elseif (string.len(frame:GetText()) <= 0) then
 		frame.text:Show()
 	end
 
@@ -2775,7 +2782,7 @@ end
 function NeuronGUI:macroNoteEdit_OnTextChanged(frame)
 
 
-	if (strlen(frame:GetText()) > 0) then
+	if (string.len(frame:GetText()) > 0) then
 		frame.text:Hide()
 		frame.cb:Show()
 	else
@@ -2804,10 +2811,10 @@ function NeuronGUI:macroOnEditFocusLost(frame)
 	local button = Neuron.CurrentObject
 
 	if (button) then
-		button:UpdateAll(true)
+		button:UpdateAll()
 	end
 
-	if (frame.text and strlen(frame:GetText()) <= 0) then
+	if (frame.text and string.len(frame:GetText()) <= 0) then
 		frame.text:Show()
 	end
 end
@@ -2875,7 +2882,7 @@ function NeuronGUI:updateIconList()
 	local search
 	if (NeuronButtonEditor.search) then
 		search = NeuronButtonEditor.search:GetText()
-		if (strlen(search) < 1) then
+		if (string.len(search) < 1) then
 			search = nil
 		end
 	end
@@ -3128,7 +3135,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f:SetPoint("BOTTOMLEFT", frame.macroicon, "BOTTOMRIGHT", 2, -7)
 	f:SetWidth(34)
 	f:SetHeight(34)
-	--f:SetScript("OnClick", function(self) SetActiveSpecGroup(GetActiveSpecGroup() == 1 and 2 or 1);  end)
+	--f:SetScript("OnClick", function(self) SetActiveSpecGroup(Neuron.activeSpec == 1 and 2 or 1);  end)
 	f:SetScript("OnClick", function(self) NeuronGUI:ResetButtonFields(self) end)
 	f:SetScript("OnEnter", function(self)
 		if ( self.tooltipText ) then
@@ -3222,7 +3229,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f:SetPoint("BOTTOMRIGHT", frame.macroeditBG, "TOP", -18, 32)
 	f:SetScript("OnTextChanged", function(self) NeuronGUI:macroNameEdit_OnTextChanged(self) end)
 	f:SetScript("OnEditFocusGained", function(self) self.text:Hide() self.hasfocus = true end)
-	f:SetScript("OnEditFocusLost", function(self) if (strlen(self:GetText()) < 1) then self.text:Show() end NeuronGUI:macroOnEditFocusLost(self) end)
+	f:SetScript("OnEditFocusLost", function(self) if (string.len(self:GetText()) < 1) then self.text:Show() end NeuronGUI:macroOnEditFocusLost(self) end)
 	f:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
 	f:SetScript("OnTabPressed", function(self) self:ClearFocus() end)
 	frame.nameedit = f
@@ -3252,7 +3259,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f:SetPoint("BOTTOMRIGHT", frame.macroeditBG, "TOPRIGHT",-16, 32)
 	f:SetScript("OnTextChanged", function(self) NeuronGUI:macroNoteEdit_OnTextChanged(self) end)
 	f:SetScript("OnEditFocusGained", function(self) self.text:Hide() self.hasfocus = true end)
-	f:SetScript("OnEditFocusLost", function(self) if (strlen(self:GetText()) < 1) then self.text:Show() end NeuronGUI:macroOnEditFocusLost(self) end)
+	f:SetScript("OnEditFocusLost", function(self) if (string.len(self:GetText()) < 1) then self.text:Show() end NeuronGUI:macroOnEditFocusLost(self) end)
 	f:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
 	f:SetScript("OnTabPressed", function(self) self:ClearFocus() end)
 	frame.noteedit = f
@@ -3336,8 +3343,8 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f:SetScript("OnTabPressed", function(self) NeuronGUI:updateIconList(); NeuronGUI:MacroIconListUpdate(); self:ClearFocus(); self.hasfocus = nil; end)
 	f:SetScript("OnEscapePressed", function(self) self:SetText(""); NeuronGUI:updateIconList(); NeuronGUI:MacroIconListUpdate(); self:ClearFocus(); self.hasfocus = nil; end)
 	f:SetScript("OnEditFocusGained", function(self) self.text:Hide() self.cancel:Show() self.hasfocus = true end)
-	f:SetScript("OnEditFocusLost", function(self) if (strlen(self:GetText()) < 1) then self.text:Show() self.cancel:Hide() end self.hasfocus = nil end)
-	f:SetScript("OnTextChanged", function(self) if (strlen(self:GetText()) < 1 and not self.hasfocus) then self.text:Show() self.cancel:Hide() end end)
+	f:SetScript("OnEditFocusLost", function(self) if (string.len(self:GetText()) < 1) then self.text:Show() self.cancel:Hide() end self.hasfocus = nil end)
+	f:SetScript("OnTextChanged", function(self) if (string.len(self:GetText()) < 1 and not self.hasfocus) then self.text:Show() self.cancel:Hide() end end)
 	frame.search = f
 
 	frame.search:Hide() --hide search frame because it is broken and returns nonesense
@@ -3408,7 +3415,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
 	f:SetScript("OnTabPressed", function(self) self:ClearFocus() end)
 	--f:SetScript("OnEditFocusGained", function(self) self.text:Hide() self.cancel:Show() self.hasfocus = true end)
-	--f:SetScript("OnEditFocusLost", function(self) if (strlen(self:GetText()) < 1) then self.text:Show() self.cancel:Hide() end self.hasfocus = nil end)
+	--f:SetScript("OnEditFocusLost", function(self) if (string.len(self:GetText()) < 1) then self.text:Show() self.cancel:Hide() end self.hasfocus = nil end)
 	f:SetScript("OnTextChanged", function(self) self:SetText(self:GetText():upper()) end)
 	f.frame = frame
 	frame.custompath = f
@@ -4116,10 +4123,10 @@ local sbadjOptions = {
 
 	[1] = { "WIDTH", L["Width"], 1, "UpdateWidth", 0.5, 1, nil, nil, "%0.1f", 1, "" },
 	[2] = { "HEIGHT", L["Height"], 1, "UpdateHeight", 0.5, 1, nil, nil, "%0.1f", 1, "" },
-	[3] = { "BARFILL", L["Bar Fill"], 2, "UpdateTexture", nil, nil, nil, BarTexturesData },
+	[3] = { "BARFILL", L["Bar Fill"], 2, "UpdateBarFill", nil, nil, nil, BarTexturesData },
 	[4] = { "BORDER", L["Border"], 2, "UpdateBorder", nil, nil, nil, BarBordersData },
 	[5] = { "ORIENT", L["Orientation"], 2, "UpdateOrientation", nil, nil, nil, Neuron.BarOrientations },
-	[6] = { "UNIT_WATCH", L["Unit"], 2, "UpdateUnit", nil, nil, nil, Neuron.BarUnits  },
+	[6] = { "UNIT_WATCH", L["Unit"], 2, "UpdateUnit", nil, nil, nil, Neuron.BarUnits },
 	[7] = { "CENTER_TEXT", L["Center Text"], 2, "UpdateCenterText", nil, nil, nil, Neuron.sbStrings },
 	[8] = { "LEFT_TEXT", L["Left Text"], 2, "UpdateLeftText", nil, nil, nil, Neuron.sbStrings  },
 	[9] = { "RIGHT_TEXT", L["Right Text"], 2, "UpdateRightText", nil, nil, nil, Neuron.sbStrings  },

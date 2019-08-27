@@ -22,32 +22,25 @@
 
 ---@class Neuron @define The main addon object for the Neuron Action Bar addon
 Neuron = LibStub("AceAddon-3.0"):NewAddon(CreateFrame("Frame", nil, UIParent), "Neuron", "AceConsole-3.0", "AceEvent-3.0", "AceHook-3.0", "AceTimer-3.0")
---this is the working pointer that all functions act upon, instead of acting directly on Neuron (it was how it was coded before me. Seems unnecessary)
 
 local DB
 
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 
-local LATEST_VERSION_NUM = "1.0.3" --this variable is set to popup a welcome message upon updating/installing. Only change it if you want to pop up a message after the users next update
+local LATEST_VERSION_NUM = "1.1.3" --this variable is set to popup a welcome message upon updating/installing. Only change it if you want to pop up a message after the users next update
 
 local LATEST_DB_VERSION = 1.3
 
-Neuron.BARIndex = {} --this table will be our main handle for all of our bars.
-
 --prepare the Neuron table with some sub-tables that will be used down the road
+Neuron.BARIndex = {} --this table will be our main handle for all of our bars.
 Neuron.EDITIndex = {}
 Neuron.BINDIndex = {}
-
-Neuron.numLoadedModules = 0
 
 Neuron.registeredBarData = {}
 Neuron.registeredGUIData = {}
 
-Neuron.macroDrag = {}
-Neuron.startDrag = false
 
-
----these are the database tables that are going to hold our data. They are global because every .lua file needs access to them
+--these are the database tables that are going to hold our data. They are global because every .lua file needs access to them
 NeuronItemCache = {} --Stores a cache of all items that have been seen by a Neuron button
 NeuronSpellCache = {} --Stores a cache of all spells that have been seen by a Neuron button
 NeuronCollectionCache = {} --Stores a cache of all Mounts and Battle Pets that have been seen by a Neuron button
@@ -122,12 +115,6 @@ Neuron.barEditMode = false
 Neuron.buttonEditMode = false
 Neuron.bindingMode = false
 
-Neuron.SPECIALACTIONS = {
-	vehicle = "Interface\\AddOns\\Neuron\\Images\\new_vehicle_exit",
-	possess = "Interface\\Icons\\Spell_Shadow_SacrificialShield",
-	taxi = "Interface\\Vehicles\\UI-Vehicles-Button-Exit-Up",
-}
-
 Neuron.unitAuras = { player = {}, target = {}, focus = {} }
 
 Neuron.THROTTLE = 0.2
@@ -135,6 +122,10 @@ Neuron.TIMERLIMIT = 4
 Neuron.SNAPTO_TOLLERANCE = 28
 
 Neuron.enteredWorld = false --flag that gets set when the player enters the world. It's used primarily for throttling events so that the player doesn't crash on logging with too many processes
+
+Neuron.isWoWClassic = select(4, GetBuildInfo()) < 20000
+
+Neuron.activeSpec = 1
 
 -------------------------------------------------------------------------
 --------------------Start of Functions-----------------------------------
@@ -154,17 +145,17 @@ function Neuron:OnInitialize()
 
 	DB = Neuron.db.profile
 
-	---Check if the current database needs to be migrated, and attempt the migration
+	--Check if the current database needs to be migrated, and attempt the migration
 	Neuron:DatabaseMigration()
 
 
-	---load saved variables into working variable containers
+	--load saved variables into working variable containers
 	NeuronItemCache = DB.NeuronItemCache
 	NeuronSpellCache = DB.NeuronSpellCache
 	NeuronCollectionCache = DB.NeuronCollectionCache
 	NeuronToyCache = DB.NeuronToyCache
 
-	---these are the working pointers to our global database tables. Each class has a local GDB and CDB table that is a pointer to the root of their associated database
+	--these are the working pointers to our global database tables. Each class has a local GDB and CDB table that is a pointer to the root of their associated database
 	Neuron.MAS = Neuron.MANAGED_ACTION_STATES
 	Neuron.MBS = Neuron.MANAGED_BAR_STATES
 
@@ -187,7 +178,7 @@ function Neuron:OnInitialize()
 	--Initialize the chat commands (i.e. /neuron)
 	Neuron:RegisterChatCommand("neuron", "slashHandler")
 
-	--Load bars and buttons
+	--build all bar and button frames and run initial setup
 	Neuron:Startup()
 
 end
@@ -203,22 +194,16 @@ function Neuron:OnEnable()
 	Neuron:RegisterEvent("SPELLS_CHANGED")
 	Neuron:RegisterEvent("CHARACTER_POINTS_CHANGED")
 	Neuron:RegisterEvent("LEARNED_SPELL_IN_TAB")
-	Neuron:RegisterEvent("COMPANION_LEARNED")
-	Neuron:RegisterEvent("UNIT_PET")
-	Neuron:RegisterEvent("TOYS_UPDATED")
-	Neuron:RegisterEvent("PET_JOURNAL_LIST_UPDATE")
 
-	Neuron:RegisterEvent("ACTIONBAR_SHOWGRID")
-	Neuron:RegisterEvent("UNIT_AURA")
-	Neuron:RegisterEvent("UNIT_SPELLCAST_SENT")
-	Neuron:RegisterEvent("UNIT_SPELLCAST_START")
-	Neuron:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-	Neuron:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
-
+	if not Neuron.isWoWClassic then
+		Neuron:RegisterEvent("COMPANION_LEARNED")
+		Neuron:RegisterEvent("TOYS_UPDATED")
+		Neuron:RegisterEvent("PET_JOURNAL_LIST_UPDATE")
+	end
 
 	Neuron:UpdateStanceStrings()
 
-	---this allows for the "Esc" key to disable the Edit Mode instead of bringing up the game menu, but only if an edit mode is activated.
+	--this allows for the "Esc" key to disable the Edit Mode instead of bringing up the game menu, but only if an edit mode is activated.
 
 	if not Neuron:IsHooked(GameMenuFrame, "OnUpdate") then
 		Neuron:HookScript(GameMenuFrame, "OnUpdate", function(self)
@@ -243,10 +228,16 @@ function Neuron:OnEnable()
 
 	Neuron:LoginMessage()
 
-
-	for _,bar in pairs(Neuron.BARIndex) do
-		bar:Load()
+	if not Neuron.isWoWClassic then
+		Neuron.activeSpec = GetSpecialization()
 	end
+
+	--Load all bars and buttons
+	for i,v in pairs(Neuron.BARIndex) do
+		v:Load()
+	end
+
+	Neuron:Overrides()
 
 end
 
@@ -281,10 +272,12 @@ function Neuron:PLAYER_ENTERING_WORLD()
 	DB.firstRun = false
 
 	Neuron:UpdateSpellCache()
-	Neuron:UpdatePetSpellCache()
 	Neuron:UpdateStanceStrings()
-	Neuron:UpdateCollectionCache()
-	Neuron:UpdateToyCache()
+
+	if not Neuron.isWoWClassic then
+		Neuron:UpdateCollectionCache()
+		Neuron:UpdateToyCache()
+	end
 
 	--Fix for Titan causing the Main Bar to not be hidden
 	if (IsAddOnLoaded("Titan")) then
@@ -300,6 +293,9 @@ function Neuron:PLAYER_ENTERING_WORLD()
 end
 
 function Neuron:ACTIVE_TALENT_GROUP_CHANGED()
+
+	Neuron.activeSpec = GetSpecialization()
+
 	Neuron:UpdateSpellCache()
 	Neuron:UpdateStanceStrings()
 end
@@ -329,72 +325,6 @@ end
 
 function Neuron:TOYS_UPDATED(...)
 	Neuron:UpdateToyCache()
-end
-
-function Neuron:UNIT_PET(_, ...)
-	if ... == "player" then
-		if (Neuron.enteredWorld) then
-			Neuron:UpdatePetSpellCache()
-		end
-	end
-end
-
-function Neuron:ACTIONBAR_SHOWGRID()
-	Neuron.startDrag = true
-end
-
-function Neuron:UNIT_AURA(_, ...)
-	local unit = select(1,...)
-	if (Neuron.unitAuras[unit]) then
-		if (... == "player") then
-			Neuron.ACTIONBUTTON.updateAuraInfo(unit)
-		end
-	end
-end
-
-function Neuron:UNIT_SPELLCAST_SENT(_, ...)
-	local unit = select(1,...)
-	if (Neuron.unitAuras[unit]) then
-		if (... == "player") then
-			Neuron.ACTIONBUTTON.updateAuraInfo(unit)
-		end
-	end
-end
-
-function Neuron:UNIT_SPELLCAST_START(_, ...)
-	local unit = select(1,...)
-	if (Neuron.unitAuras[unit]) then
-		if (... == "player") then
-			Neuron.ACTIONBUTTON.updateAuraInfo(unit)
-		end
-	end
-end
-
-function Neuron:UNIT_SPELLCAST_SUCCEEDED(_, ...)
-	local unit = select(1,...)
-	if (Neuron.unitAuras[unit]) then
-		if (... == "player") then
-			Neuron.ACTIONBUTTON.updateAuraInfo(unit)
-		end
-	end
-end
-
-function Neuron:UNIT_SPELLCAST_CHANNEL_START(_, ...)
-	local unit = select(1,...)
-	if (Neuron.unitAuras[unit]) then
-		if (... == "player") then
-			Neuron.ACTIONBUTTON.updateAuraInfo(unit)
-		end
-	end
-end
-
-function Neuron:UNIT_SPELLCAST_SUCCEEDED(_, ...)
-	local unit = select(1,...)
-	if (Neuron.unitAuras[unit]) then
-		if (... == "player") then
-			Neuron.ACTIONBUTTON.updateAuraInfo(unit)
-		end
-	end
 end
 
 -------------------------------------------------------------------------
@@ -459,9 +389,10 @@ function Neuron:LoginMessage()
 
 		print(" ")
 		print("         ~~~~~~~~~~NEURON~~~~~~~~~")
-		print("    Happy New Year, and welcome to 2019!")
+		print("    Happy Spring!")
 		print("    Neuron is in for an exciting year, thank you so much for your support.")
-		print("    Please enjoy the substantial performance improvements made this past week, and please continue reporting any bugs you may find.")
+		print("    Please reach out if you are interested in contributing to Neuron's development, we always need more help coding and translating, and, as always, donations are welcome! :-)")
+		print("    Special thanks to Acey7 for translating Neuron into Simplified Chinese!")
 		print("       -Soyier")
 
 		if UnitFactionGroup('player') == "Horde" then
@@ -513,20 +444,22 @@ end
 
 
 --- Creates a table containing provided data
--- @param index, bookType, spellName, altName, spellID, spellID_Alt, spellType, spellLvl, icon
+-- @param index, bookType, spellName, altName, spellID, altSpellID, spellType, icon
 -- @return curSpell:  Table containing provided data
-function Neuron:SetSpellInfo(index, bookType, spellName, altName, spellID, spellID_Alt, spellType, spellLvl, icon)
+function Neuron:SetSpellInfo(index, bookType, spellType, spellName, spellID, icon, altName, altSpellID, altIcon)
 	local curSpell = {}
 
 	curSpell.index = index
 	curSpell.booktype = bookType
-	curSpell.spellName = spellName
-	curSpell.altName = altName
-	curSpell.spellID = spellID
-	curSpell.spellID_Alt = spellID_Alt
+
 	curSpell.spellType = spellType
-	curSpell.spellLvl = spellLvl
+	curSpell.spellName = spellName
+	curSpell.spellID = spellID
 	curSpell.icon = icon
+
+	curSpell.altName = altName
+	curSpell.altSpellID = altSpellID
+	curSpell.altIcon = altIcon
 
 	return curSpell
 end
@@ -548,93 +481,62 @@ function Neuron:UpdateSpellCache()
 	end
 
 	for i = 1,sIndexMax do
-		local spellName, _ = GetSpellBookItemName(i, BOOKTYPE_SPELL)
+		local spellName, _ = GetSpellBookItemName(i, BOOKTYPE_SPELL) --this returns the baseSpell name, even if it is augmented by talents. I.e. Roll and Chi Torpedo
 		local spellType, spellID = GetSpellBookItemInfo(i, BOOKTYPE_SPELL)
-		local spellID_Alt = spellID
-		local spellLvl = GetSpellAvailableLevel(i, BOOKTYPE_SPELL)
+		local icon = GetSpellTexture(spellID)
+
+		local altName
+		local altSpellID
+		local altIcon
 
 		if (spellName and spellType ~= "FUTURESPELL") then
-			local link = GetSpellLink(spellName)
-			if (link) then
-				_, spellID = link:match("(spell:)(%d+)")
-				local tempID = tonumber(spellID)
-				if (tempID) then
-					spellID = tempID
-				end
+
+			altName, _, altIcon, _, _, _, altSpellID = GetSpellInfo(spellName)
+
+			if spellID == altSpellID then
+				altSpellID = nil
+				altName = nil
+				altIcon = nil
 			end
 
-			local altName, _, icon = GetSpellInfo(spellID)
-			if spellID ~= spellID_Alt then
-				altName = GetSpellInfo(spellID_Alt)
-			end
-
-			local spellData = Neuron:SetSpellInfo(i, BOOKTYPE_SPELL, spellName, altName, spellID, spellID_Alt, spellType, spellLvl, icon)
+			local spellData = Neuron:SetSpellInfo(i, BOOKTYPE_SPELL, spellType, spellName, spellID, icon, altName, altSpellID, altIcon)
 
 			NeuronSpellCache[(spellName):lower()] = spellData
 			NeuronSpellCache[(spellName):lower().."()"] = spellData
 
 
+			--reverse main and alt so we can put both in the table accurately
+			local altSpellData = Neuron:SetSpellInfo(i, BOOKTYPE_SPELL, spellType, altName, altSpellID, altIcon, spellName, spellID, icon)
+
 			if (altName and altName ~= spellName) then
-				NeuronSpellCache[(altName):lower()] = spellData
-				NeuronSpellCache[(altName):lower().."()"] = spellData
+				NeuronSpellCache[(altName):lower()] = altSpellData
+				NeuronSpellCache[(altName):lower().."()"] = altSpellData
 			end
 
 		end
 	end
 
-	for i = 1, select("#", GetProfessions()) do
-		local index = select(i, GetProfessions())
+	if not Neuron.isWoWClassic then
+		for i = 1, select("#", GetProfessions()) do
+			local index = select(i, GetProfessions())
 
-		if (index) then
-			local _, _, _, _, numSpells, spelloffset = GetProfessionInfo(index)
+			if (index) then
+				local _, _, _, _, numSpells, spelloffset = GetProfessionInfo(index)
 
-			for j=1,numSpells do
+				for j=1,numSpells do
 
-				local offsetIndex = j + spelloffset
-				local spellName, _ = GetSpellBookItemName(offsetIndex, BOOKTYPE_PROFESSION)
-				local spellType, spellID = GetSpellBookItemInfo(offsetIndex, BOOKTYPE_PROFESSION)
-				local spellID_Alt = spellID
-				local spellLvl = GetSpellAvailableLevel(offsetIndex, BOOKTYPE_PROFESSION)
+					local offsetIndex = j + spelloffset
+					local spellName, _ = GetSpellBookItemName(offsetIndex, BOOKTYPE_PROFESSION)
+					local spellType, spellID = GetSpellBookItemInfo(offsetIndex, BOOKTYPE_PROFESSION)
+					local icon
 
-				if (spellName and spellType ~= "FUTURESPELL") then
-					local altName, _, icon = GetSpellInfo(spellID)
-					local spellData = Neuron:SetSpellInfo(offsetIndex, BOOKTYPE_PROFESSION, spellName, altName, spellID, spellID_Alt, spellType, spellLvl, icon)
-
-					NeuronSpellCache[(spellName):lower()] = spellData
-					NeuronSpellCache[(spellName):lower().."()"] = spellData
-
-
-					if (altName and altName ~= spellName) then
-						NeuronSpellCache[(altName):lower()] = spellData
-						NeuronSpellCache[(altName):lower().."()"] = spellData
-
-					end
-
-				end
-			end
-		end
-	end
-
-
-	---This code collects the data for the Hunter's "Call Pet" Flyout. It is a mystery why it works, but it does
-
-	if(Neuron.class == 'HUNTER') then
-		local _, _, numSlots, _ = GetFlyoutInfo(9)
-
-		for i=1, numSlots do
-			local spellID, isKnown = GetFlyoutSlotInfo(9, i)
-			local petIndex, petName = GetCallPetSpellInfo(spellID)
-
-			if (isKnown and petIndex and petName and #petName > 0) then
-				local spellName = GetSpellInfo(spellID)
-
-				for _,v in pairs(NeuronSpellCache) do
-
-					if (v.spellName:find(petName.."$")) then
-						local spellData = Neuron:SetSpellInfo(v.index, v.booktype, v.spellName, nil, spellID, v.spellID_Alt, v.spellType, v.spellLvl, v.icon)
+					if (spellName and spellType ~= "FUTURESPELL") then
+						icon = GetSpellTexture(spellID)
+						local spellData = Neuron:SetSpellInfo(offsetIndex, BOOKTYPE_PROFESSION, spellType, spellName, spellID, icon,nil,  nil, nil)
 
 						NeuronSpellCache[(spellName):lower()] = spellData
 						NeuronSpellCache[(spellName):lower().."()"] = spellData
+
 					end
 				end
 			end
@@ -642,31 +544,6 @@ function Neuron:UpdateSpellCache()
 	end
 
 end
-
-
---- Adds pet spells & abilities to the spell list index
-function Neuron:UpdatePetSpellCache()
-
-	if (HasPetSpells()) then
-		for i=1,HasPetSpells() do
-			local spellName, _ = GetSpellBookItemName(i, BOOKTYPE_PET)
-			local spellType, _ = GetSpellBookItemInfo(i, BOOKTYPE_PET)
-			local spellLvl = GetSpellAvailableLevel(i, BOOKTYPE_PET)
-
-			if (spellName and spellType ~= "FUTURESPELL") then
-				local altName, _, icon, _, _, _, spellID = GetSpellInfo(spellName)
-				local spellID_Alt = spellID
-
-				local spellData = Neuron:SetSpellInfo(i, BOOKTYPE_PET, spellName, altName, spellID, spellID_Alt, spellType, spellLvl, icon)
-
-				NeuronSpellCache[(spellName):lower()] = spellData
-				NeuronSpellCache[(spellName):lower().."()"] = spellData
-
-			end
-		end
-	end
-end
-
 
 --- Creates a table containing provided companion & mount data
 -- @param index, creatureType, index, creatureID, creatureName, spellID, icon
@@ -742,8 +619,7 @@ end
 
 
 function Neuron:UpdateStanceStrings()
-	if (Neuron.class == "DRUID" or
-			Neuron.class == "ROGUE") then
+	if (Neuron.class == "DRUID" or Neuron.class == "ROGUE") then
 
 		local icon, active, castable, spellID
 
@@ -776,7 +652,7 @@ function Neuron:UpdateStanceStrings()
 			Neuron.STATES["stance2"] = L["Vanish"]
 			states = states.."[stance:2] stance2; "
 
-			if(GetSpecialization() == 3) then
+			if(Neuron.activeSpec == 3) then
 				Neuron.STATES["stance3"] = L["Shadow Dance"]
 				states = states.."[stance:3] stance3; "
 			end
@@ -792,7 +668,6 @@ end
 
 function Neuron:ToggleButtonGrid(show)
 	for _,bar in pairs(Neuron.BARIndex) do
-
 		if bar.barType == "ActionBar" or bar.barType == "PetBar" then
 			for _, button in pairs(bar.buttons) do
 				button:SetObjectVisibility(show)
@@ -800,7 +675,6 @@ function Neuron:ToggleButtonGrid(show)
 		end
 	end
 end
-
 
 
 function Neuron:ToggleMainMenu()
@@ -945,20 +819,18 @@ function Neuron:ToggleBindingMode(show)
 end
 
 
----This function is called each and every time a Bar-Module loads. It adds the module to the list of currently avaible bars. If we add new bars in the future, this is the place to start
-function Neuron:RegisterBarClass(class, barType, barLabel, objType, barDB, objTemplate, objMax)
-
-	Neuron.numLoadedModules = Neuron.numLoadedModules + 1
+---This function is called each and every time a Bar-Module loads. It adds the module to the list of currently available bars. If we add new bars in the future, this is the place to start
+function Neuron:RegisterBarClass(class, barType, barLabel, objType, barDB, objTemplate, objMax, keybindable)
 
 	Neuron.registeredBarData[class] = {
+		class = class;
 		barType = barType,
 		barLabel = barLabel,
-		barDB = barDB,
-		objPrefix = objType:gsub("%s+", ""),
 		objType = objType,
+		barDB = barDB,
 		objTemplate = objTemplate,
 		objMax = objMax,
-		createMsg = Neuron.numLoadedModules..objType,
+		keybindable = keybindable,
 	}
 
 end
@@ -966,6 +838,7 @@ end
 
 function Neuron:RegisterGUIOptions(class, chkOpt, stateOpt, adjOpt)
 	Neuron.registeredGUIData[class] = {
+		class = class;
 		chkOpt = chkOpt,
 		stateOpt = stateOpt,
 		adjOpt = adjOpt,

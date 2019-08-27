@@ -23,27 +23,63 @@
 local BAGBTN = setmetatable({}, {__index = Neuron.BUTTON})
 Neuron.BAGBTN = BAGBTN
 
-local SKIN = LibStub("Masque", true)
 
-local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
-
-
-local bagElements = {CharacterBag3Slot, CharacterBag2Slot, CharacterBag1Slot, CharacterBag0Slot, MainMenuBarBackpackButton}
-
-
+---------------------------------------------------------
 
 ---Constructor: Create a new Neuron BUTTON object (this is the base object for all Neuron button types)
----@param name string @ Name given to the new button frame
+---@param bar BAR @Bar Object this button will be a child of
+---@param buttonID number @Button ID that this button will be assigned
+---@param defaults table @Default options table to be loaded onto the given button
 ---@return BAGBTN @ A newly created BAGBTN object
-function BAGBTN:new(name)
-	local object = CreateFrame("CheckButton", name, UIParent, "NeuronAnchorButtonTemplate")
-	setmetatable(object, {__index = BAGBTN})
-	return object
+function BAGBTN.new(bar, buttonID, defaults)
+
+	--call the parent object constructor with the provided information specific to this button type
+	local newButton = Neuron.BUTTON.new(bar, buttonID, BAGBTN, "BagBar", "BagButton", "NeuronAnchorButtonTemplate")
+
+	if (defaults) then
+		newButton:SetDefaults(defaults)
+	end
+
+	return newButton
 end
 
 
+--------------------------------------------------------
 
+local bagElements = {
+	CharacterBag3Slot,
+	CharacterBag2Slot,
+	CharacterBag1Slot,
+	CharacterBag0Slot,
+	MainMenuBarBackpackButton}
+
+
+function BAGBTN:SetType()
+
+	if (bagElements[self.id]) then
+		self.element = bagElements[self.id]
+		self.element:ClearAllPoints()
+		self.element:SetParent(self)
+		self.element:Show()
+		self.element:SetPoint("CENTER", self, "CENTER")
+	end
+
+	self:SetSkinned()
+end
+
+function BAGBTN:SetData(bar)
+
+	if (bar) then
+		self.bar = bar
+		self:SetFrameStrata(bar.data.objectStrata)
+		self:SetScale(bar.data.scale)
+	end
+end
+
+---simplified SetSkinned for the Bag Buttons. They're unique in that they contain buttons inside of the buttons
 function BAGBTN:SetSkinned()
+
+	local SKIN = LibStub("Masque", true)
 
 	if (SKIN) then
 
@@ -51,62 +87,18 @@ function BAGBTN:SetSkinned()
 
 		if (bar) then
 			local btnData = {
-				Normal = self.normaltexture,
-				Icon = self.icontexture,
-				Count = self.count,
+				Normal = self.element:GetNormalTexture(),
+				Icon = self.element.icon,
+				Count = self.element.Count,
+				Pushed = self.element:GetPushedTexture(),
+				Disabled = self.element:GetDisabledTexture(),
+				Checked = self.element.SlotHighlightTexture, --blizzard in 8.1.5 took away GetCheckedTexture from the bag buttons for ~some~ reason. This is now the explicit location the element we want
+				Highlight = self.element:GetHighlightTexture(),
 			}
-
 
 			SKIN:Group("Neuron", bar.data.name):AddButton(self, btnData)
 
 			self.skinned = true
 		end
-	end
-end
-
-function BAGBTN:SetData(bar)
-
-	if (bar) then
-
-		self.bar = bar
-
-		self:SetFrameStrata(bar.data.objectStrata)
-		self:SetScale(bar.data.scale)
-
-	end
-
-	self:SetFrameLevel(4)
-end
-
-
-function BAGBTN:SetType(save)
-
-	if (bagElements[self.id]) then
-
-		if self.id == 5 then --this corrects for some large ass margins on the main backpack button
-			self:SetWidth(bagElements[self.id]:GetWidth()-5)
-			self:SetHeight(bagElements[self.id]:GetHeight()-5)
-		else
-			self:SetWidth(bagElements[self.id]:GetWidth()+3)
-			self:SetHeight(bagElements[self.id]:GetHeight()+3)
-		end
-
-		self:SetHitRectInsets(self:GetWidth()/2, self:GetWidth()/2, self:GetHeight()/2, self:GetHeight()/2)
-
-		self.element = bagElements[self.id]
-
-		local objects = Neuron:GetParentKeys(self.element)
-
-		for k,v in pairs(objects) do
-			local name = v:gsub(self.element:GetName(), "")
-			self[name:lower()] = _G[v]
-		end
-
-		self.element:ClearAllPoints()
-		self.element:SetParent(self)
-		self.element:Show()
-		self.element:SetPoint("CENTER", self, "CENTER")
-		self.element:SetScale(1)
-
 	end
 end

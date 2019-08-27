@@ -24,144 +24,153 @@ local EXTRABTN = setmetatable({}, { __index = Neuron.BUTTON })
 Neuron.EXTRABTN = EXTRABTN
 
 
-
-
-local SKIN = LibStub("Masque", true)
-local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
-
-
+----------------------------------------------------------
 
 ---Constructor: Create a new Neuron BUTTON object (this is the base object for all Neuron button types)
----@param name string @ Name given to the new button frame
+---@param bar BAR @Bar Object this button will be a child of
+---@param buttonID number @Button ID that this button will be assigned
+---@param defaults table @Default options table to be loaded onto the given button
 ---@return EXTRABTN @ A newly created EXTRABTN object
-function EXTRABTN:new(name)
-	local object = CreateFrame("CheckButton", name, UIParent, "NeuronActionButtonTemplate")
-	setmetatable(object, {__index = EXTRABTN})
-	return object
-end
+function EXTRABTN.new(bar, buttonID, defaults)
 
+	--call the parent object constructor with the provided information specific to this button type
+	local newButton = Neuron.BUTTON.new(bar, buttonID, EXTRABTN, "ExtraBar", "ExtraActionButton", "NeuronActionButtonTemplate")
 
-function EXTRABTN:SetObjectVisibility(show)
-
-	if HasExtraActionBar() or show then --set alpha instead of :Show or :Hide, to avoid taint and to allow the button to appear in combat
-		self:SetAlpha(1)
-
-	elseif not Neuron.buttonEditMode and not Neuron.barEditMode and not Neuron.bindingMode then
-		self:SetAlpha(0)
+	if (defaults) then
+		newButton:SetDefaults(defaults)
 	end
 
+	newButton.style = newButton:CreateTexture(nil, "OVERLAY")
+	newButton.style:SetPoint("CENTER", -2, 1)
+	newButton.style:SetWidth(190)
+	newButton.style:SetHeight(95)
+
+	return newButton
 end
 
 
-function EXTRABTN:SetExtraButtonTex()
+----------------------------------------------------------
 
-	if self.actionID then
-		self.iconframeicon:SetTexture(GetActionTexture(self.actionID))
-	end
-
-	local texture = GetOverrideBarSkin() or "Interface\\ExtraButton\\Default"
-	self.style:SetTexture(texture)
-end
-
-
-function EXTRABTN:LoadAux()
-
-	Neuron.NeuronBinder:CreateBindFrame(self)
-
-	self.style = self:CreateTexture(nil, "OVERLAY")
-	self.style:SetPoint("CENTER", -2, 1)
-	self.style:SetWidth(190)
-	self.style:SetHeight(95)
-
-	self:SetExtraButtonTex()
-
-	self.hotkey:SetPoint("TOPLEFT", -4, -6)
-end
-
-
-function EXTRABTN:ExtraButton_Update()
-
-	self:SetExtraButtonTex()
-
-	self.style:Show()
-
-	local start, duration, enable, modrate = GetActionCooldown(self.actionID);
-
-	if (start) then
-		self:SetCooldownTimer(start, duration, enable, self.cdText, modrate, self.cdcolor1, self.cdcolor2, self.cdAlpha)
-	end
-
-
-end
-
-
-function EXTRABTN:OnEnter(...)
-
-	if (self.bar) then
-
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-
-		if (GetActionInfo(self.actionID)) then
-
-			GameTooltip:SetAction(self.actionID)
-
-		end
-
-		GameTooltip:Show()
-
-	end
-end
-
-
-function EXTRABTN:SetType(save)
+function EXTRABTN:SetType()
 
 	self:RegisterEvent("UPDATE_EXTRA_ACTIONBAR", "OnEvent")
 	self:RegisterEvent("ZONE_CHANGED", "OnEvent")
 	self:RegisterEvent("SPELLS_CHANGED", "OnEvent")
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEvent")
 	self:RegisterEvent("SPELL_UPDATE_COOLDOWN", "OnEvent")
+	self:RegisterEvent("SPELL_UPDATE_CHARGES", "OnEvent")
 	self:RegisterUnitEvent("UNIT_AURA", "player")
 
-	self.actionID = 169
+	self:SetAttribute("type1", "action")
 
-	self:SetAttribute("type", "action")
-	self:SetAttribute("*action1", self.actionID)
-
-	self:SetAttribute("useparent-unit", false)
-	self:SetAttribute("unit", ATTRIBUTE_NOOP)
+	--action content gets set in UpdateButton
+	self:UpdateButton()
 
 	self:SetScript("OnEnter", function(self, ...) self:OnEnter(...) end)
 	self:SetScript("OnLeave", GameTooltip_Hide)
-	self:SetScript("OnShow", function(self) self:ExtraButton_Update() end)
 
-	self:WrapScript(self, "OnShow", [[
-					for i=1,select('#',(":"):split(self:GetAttribute("hotkeys"))) do
-						self:SetBindingClick(self:GetAttribute("hotkeypri"), select(i,(":"):split(self:GetAttribute("hotkeys"))), self:GetName())
-					end
-					]])
-
-	self:WrapScript(self, "OnHide", [[
-					if (not self:GetParent():GetAttribute("concealed")) then
-						for key in gmatch(self:GetAttribute("hotkeys"), "[^:]+") do
-							self:ClearBinding(key)
-						end
-					end
-					]])
-
+	self:UpdateIcon()
+	self:SetObjectVisibility()
 
 	self:SetSkinned()
-
-
 end
 
 
 function EXTRABTN:OnEvent(event, ...)
 
-	self:ExtraButton_Update()
+	self:UpdateButton()
 	self:SetObjectVisibility()
 
 	if event == "PLAYER_ENTERING_WORLD" then
-		Neuron.NeuronBinder:ApplyBindings(self)
+		self.binder:ApplyBindings()
 	end
 
+end
+
+---overwrite function in parent class BUTTON
+function EXTRABTN:UpdateButton()
+
+	---default to 169 as is the most of then the case as of 8.1
+	self.actionID = 169
+
+	---get specific extrabutton actionID. Try to query it long form, but if it can't will fall back to 169 (as is the 7.0+ default)
+	if HasExtraActionBar() then
+		local extraPage = GetExtraBarIndex()
+		self.actionID = extraPage*12 - 11 --1st slot on the extraPage (page 15 as of 8.1, so 169)
+	end
+
+	if not InCombatLockdown() then
+		self:SetAttribute("action1", self.actionID)
+	end
+
+	_, self.spellID = GetActionInfo(self.actionID)
+	self.spellName, _, self.spellIcon = GetSpellInfo(self.spellID);
+
+	if self.spellID then
+		self:UpdateIcon()
+
+		self:SetSpellCooldown(self.spellID) --for some reason this doesn't work if you give it self.spellName. The cooldown will be nil
+
+		---extra button charges (some quests have ability charges)
+		self:UpdateSpellCount(self.spellID)
+	end
+
+	---make sure our button gets the correct Normal texture if we're not using a Masque skin
+	self:UpdateNormalTexture()
+
+end
+
+
+function EXTRABTN:SetObjectVisibility(show)
+
+	if HasExtraActionBar() or show or Neuron.buttonEditMode or Neuron.barEditMode or Neuron.bindingMode then --set alpha instead of :Show or :Hide, to avoid taint and to allow the button to appear in combat
+		self:SetAlpha(1)
+	else
+		self:SetAlpha(0)
+	end
+end
+
+
+---overwrite function in parent class BUTTON
+function EXTRABTN:UpdateIcon()
+	self:SetButtonTex()
+end
+
+
+function EXTRABTN:SetButtonTex()
+
+	self.iconframeicon:SetTexture(self.spellIcon)
+
+	local texture = GetOverrideBarSkin() or "Interface\\ExtraButton\\Default"
+	self.style:SetTexture(texture)
+
+	if self.bar.data.showBorderStyle then
+		self.style:Show() --this actually show/hide the fancy button theme surrounding the bar. If you wanted to do a toggle for the style, it should be here.
+	else
+		self.style:Hide()
+	end
+end
+
+
+function EXTRABTN:OnEnter(...)
+
+	if (self.bar) then
+		if (self.tooltipsCombat and InCombatLockdown()) then
+			return
+		end
+
+		if (self.tooltips) then
+
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+
+			if (self.tooltipsEnhanced and self.spellID) then
+				GameTooltip:SetSpellByID(self.spellID)
+			elseif (self.spellName) then
+				GameTooltip:SetText(self.spellName)
+			end
+
+			GameTooltip:Show()
+		end
+
+	end
 end

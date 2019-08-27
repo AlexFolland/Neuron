@@ -1,4 +1,4 @@
-## Interface: 80100
+## Interface: 80200
 ## Title: Neuron
 ## Notes: A macro-based action bar and object manager add-on
 ## Author: Britt Yazel (aka Soyier) and Connor Chenoweth (aka Maul)
@@ -27,6 +27,8 @@ Utilities/DB-Fixer.lua
 Objects/BUTTON.lua
 Objects/BAR.lua
 Objects/ACTIONBUTTON.lua
+Objects/ACTIONBUTTON_DragAndDrop.lua
+Objects/ACTIONBUTTON_Flyout.lua
 Objects/BAGBTN.lua
 Objects/EXITBTN.lua
 Objects/EXTRABTN.lua
@@ -34,11 +36,10 @@ Objects/MENUBTN.lua
 Objects/PETBTN.lua
 Objects/STATUSBTN.lua
 Objects/ZONEABILITYBTN.lua
-Objects/ACTIONBUTTON_FLYOUTBTN.lua
-Objects/BAR_SNAPTO.lua
+Objects/BAR_SnapTo.lua
+Objects/KEYBINDER.lua
 
 Neuron-DisableBlizzardUI.lua
-Neuron-KeyBinder.lua
 Neuron-Console.lua
 Neuron-MinimapIcon.lua
 
@@ -47,7 +48,6 @@ XML/NeuronAnchorButtonTemplate.xml
 XML/NeuronBarTemplate.xml
 XML/NeuronBindFrameTemplate.xml
 XML/NeuronCheckButtonTextureTemplate.xml
-XML/NeuronNonSecureButtonTemplate.xml
 XML/NeuronStatusBarTemplate.xml
 
 Neuron-Startup.lua

@@ -161,6 +161,7 @@ L["MoveSpecButtons"] = true
 L["MoveSpecButtons_Description"] = "Copies the buttons from one spec to a second"
 
 
+
 -----------------------------------------------
 ------------------General----------------------
 -----------------------------------------------
@@ -255,10 +256,15 @@ L["Healer Form"] = true
 L["Melee"] = true
 L["Shadow Dance"] = true
 
-L["Left-Click to Configure Bars"] = true
-L["Right-Click to Configure Buttons"] = true
-L["Shift + Left-Click to Toggle Keybind Mode"] = true
-L["Shift + Right-Click to Toggle the Interface Menu"] = true
+
+L["Left-Click"] = true
+L["Right-Click"] = true
+
+L["Configure Bars"] = true
+L["Configure Buttons"] = true
+
+L["Toggle Keybind Mode"] = true
+L["Open the Interface Menu"] = true
 
 
 L["Keybind_Tooltip_1"] = "Press a key to bind it to"
@@ -353,7 +359,7 @@ L["Unlock on ALT"] = true
 L["Enable Tooltips"] = true
 L["Enhanced"] = true
 L["Hide in Combat"] = true
-L["Show Bar Border"] = true
+L["Show Border Style"] = true
 
 L["Preset Action States"] = true
 L["Custom Action States"] = true

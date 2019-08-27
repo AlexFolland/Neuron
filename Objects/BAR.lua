@@ -19,13 +19,14 @@
 --a.k.a Maul, 2014 as part of his original project, Ion. All other
 --copyrights for Neuron are held by Britt Yazel, 2017-2018.
 
----@class BAR
+---@class BAR : CheckButton @This is our bar object that serves as the container for all of our button objects
 local BAR = setmetatable({}, {__index = CreateFrame("CheckButton")}) --this is the metatable for our button object
 Neuron.BAR = BAR
 
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 
 LibStub("AceTimer-3.0"):Embed(BAR)
+LibStub("AceEvent-3.0"):Embed(BAR)
 
 
 local MAS = Neuron.MANAGED_ACTION_STATES
@@ -62,17 +63,269 @@ TRASHCAN:Hide()
 
 
 
+----------------------------------------------------
+
 ---Constructor: Create a new Neuron BAR object
----@param name string @ Name given to the new bar frame
+---@param class string @The class type of the new bar
+---@param barID number @The ID of the new bar object
 ---@return BAR @ A newly created BUTTON object
-function BAR:new(name)
-	local object = CreateFrame("CheckButton", name, UIParent, "NeuronBarTemplate")
-	setmetatable(object, {__index = BAR})
-	return object
+function BAR.new(class, barID)
+
+	local data = Neuron.registeredBarData[class]
+
+	local newBar
+
+	--this is the creation of our bar object frame
+	if _G["Neuron"..data.barType..barID] then --check to see if our bar already exists on the global namespace
+		newBar = CreateFrame("CheckButton", "Neuron"..data.barType..random(1000,10000000), UIParent, "NeuronBarTemplate") --in the case of trying to create a bar on a frame that already exists, create a random frame ID for this session only
+		setmetatable(newBar, {__index = BAR})
+	else
+		newBar = CreateFrame("CheckButton", "Neuron"..data.barType..barID, UIParent, "NeuronBarTemplate")
+		setmetatable(newBar, {__index = BAR})
+	end
+
+	--load saved data
+	for key,value in pairs(data) do
+		newBar[key] = value
+	end
+
+	--safety check
+	if not data.barDB[barID] then --if the database for a bar doesn't exist (because it's a new bar?)
+		data.barDB[barID] = {}
+	end
+
+	newBar.DB = data.barDB[barID]
+
+	--create empty buttons table that will hold onto all of our button object handles
+	newBar.buttons = {}
+
+	newBar.DB.id = barID
+	newBar.class = class
+	newBar.stateschanged = true
+	newBar.vischanged =true
+	newBar.elapsed = 0
+	newBar.click = nil
+	newBar.dragged = false
+	newBar.selected = false
+	newBar.toggleframe = newBar
+	newBar.microAdjust = false
+	newBar.vis = {}
+	newBar.text:Hide()
+	newBar.message:Hide()
+	newBar.messagebg:Hide()
+
+	newBar:SetWidth(375)
+	newBar:SetHeight(40)
+	newBar:SetBackdrop({bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+	                    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+	                    tile = true, tileSize = 16, edgeSize = 12,
+	                    insets = {left = 4, right = 4, top = 4, bottom = 4}})
+	newBar:SetBackdropColor(0,0,0,0.4)
+	newBar:SetBackdropBorderColor(0,0,0,0)
+	newBar:RegisterForClicks("AnyDown", "AnyUp")
+	newBar:RegisterForDrag("LeftButton")
+	newBar:SetMovable(true)
+	newBar:EnableKeyboard(false)
+	newBar:SetPoint("CENTER", "UIParent", "CENTER", 0, 0)
+
+	newBar:SetScript("OnClick", function(self, ...) self:OnClick(...) end)
+	newBar:SetScript("OnDragStart", function(self, ...) self:OnDragStart(...) end)
+	newBar:SetScript("OnDragStop", function(self, ...) self:OnDragStop(...) end)
+	newBar:SetScript("OnEnter", function(self, ...) self:OnEnter(...) end)
+	newBar:SetScript("OnLeave", function(self, ...) self:OnLeave(...) end)
+	newBar:SetScript("OnKeyDown", function(self, key, onupdate) self:OnKeyDown(key, onupdate) end)
+	newBar:SetScript("OnKeyUp", function(self, key) self:OnKeyUp(key) end)
+	newBar:SetScript("OnShow", function(self) self:OnShow() end)
+	newBar:SetScript("OnHide", function(self) self:OnHide() end)
+
+	table.insert(Neuron.BARIndex, newBar) --insert our new bar at the end of the table
+
+	newBar:CreateDriver()
+	newBar:CreateHandler()
+	newBar:CreateWatcher()
+
+	newBar:LoadData()
+
+	newBar:Hide() --hide the transparent blue overlay that we show in the edit mode
+
+	return newBar
+end
+
+---------------------------------------------------
+
+-----------------------------------
+-----Bar Add/Remove Functions------
+-----------------------------------
+
+
+---This function is used for creating brand new bars, and it is really just a wrapper for the BAR constructor with a couple of assumptions and checks
+function BAR:CreateNewBar(class)
+
+	if not (class and Neuron.registeredBarData[class]) then --if the class isn't registered, go ahead and bail out.
+		Neuron.PrintBarTypes()
+		return
+	end
+
+	local barID = #Neuron.registeredBarData[class].barDB + 1 --increment 1 higher than the current number of bars in this class of bar's database
+
+	local newBar = BAR.new(class, barID) --create new bar
+
+	newBar.objTemplate.new(newBar, 1) --add at least 1 button to a new bar
+	newBar:ChangeBar()
+	newBar:Load() --load the bar
+
+	newBar:Show() --Show the transparent blue overlay that we show in the edit mode
+end
+
+
+Neuron.CreateNewBar = BAR.CreateNewBar --this is so the slash function works correctly
+
+
+function BAR:DeleteBar()
+	local handler = self.handler
+
+	handler:SetAttribute("state-current", "homestate")
+	handler:SetAttribute("state-last", "homestate")
+	handler:SetAttribute("showstates", "homestate")
+	self:ClearStates(handler, "homestate")
+
+	for state, values in pairs(MAS) do
+		if (self.data[state] and self[state] and self[state].registered) then
+			if (state == "custom" and self.data.customRange) then
+				local start = tonumber(string.match(self.data.customRange, "^%d+"))
+				local stop = tonumber(string.match(self.data.customRange, "%d+$"))
+
+				if (start and stop) then
+					self:ClearStates(handler, state)--, start, stop)
+				end
+			else
+				self:ClearStates(handler, state)--, values.rangeStart, values.rangeStop)
+			end
+		end
+	end
+
+	self:RemoveObjectsFromBar(#self.buttons)
+
+	self:SetScript("OnClick", function() end)
+	self:SetScript("OnDragStart", function() end)
+	self:SetScript("OnDragStop", function() end)
+	self:SetScript("OnEnter", function() end)
+	self:SetScript("OnLeave", function() end)
+	self:SetScript("OnKeyDown", function() end)
+	self:SetScript("OnKeyUp", function() end)
+	self:SetScript("OnShow", function() end)
+	self:SetScript("OnHide", function() end)
+
+	self:SetWidth(36)
+	self:SetHeight(36)
+	self:ClearAllPoints()
+	self:SetPoint("CENTER")
+	self:Hide()
+
+	table.remove(self.barDB, self.DB.id) --removes the bar from the database, along with all of its buttons
+
+	for k,v in pairs(self.barDB) do
+
+		local oldID = v.id --keep track of the oldID
+
+		v.id = k --update the bar id to match the new index value, this is VERY important
+
+		if v.name == self.barLabel.." "..oldID then --if the name is name according to the oldID, update the name to the new ID (i.e. if they never changed the name, we don't want to overwrite custom names)
+			v.name = self.barLabel.." "..v.id
+		end
+	end
+
+	local index --find the location of our bar in the bar table
+	for i,v in ipairs(Neuron.BARIndex) do
+		if v == self then
+			index = i
+		end
+	end
+
+	if index then --if our index was found (it should always be found) remove it from the array
+		table.remove(Neuron.BARIndex, index)
+	end
+
+	if (NeuronBarEditor and NeuronBarEditor:IsVisible()) then
+		Neuron.NeuronGUI:UpdateBarGUI()
+	end
+
+	for i,v in pairs(Neuron.BARIndex) do --update bars to reflect new names, if they have new names
+		v:Update()
+	end
+
 end
 
 
 
+function BAR:AddObjectsToBar(num) --called from NeuronGUI
+
+	num = tonumber(num)
+
+	if (not num) then
+		num = 1
+	end
+
+	for i=1,num do
+
+		local buttonID = #self.buttons + 1
+
+		if (#self.buttons < self.objMax) then
+			local buttonBaseObject = Neuron.registeredBarData[self.class].objTemplate
+			buttonBaseObject.new(self, buttonID)
+		end
+
+	end
+
+	self:LoadObjects()
+	self:SetObjectLoc()
+	self:SetPerimeter()
+	self:SetSize()
+	self:Update()
+	self:UpdateObjectVisibility()
+
+end
+
+
+function BAR:RemoveObjectsFromBar(num) --called from NeuronGUI
+
+	if (not num) then
+		num = 1
+	end
+
+
+	for i=1,num do
+
+		local id = #self.buttons --always the last button
+
+		local object = self.buttons[id]
+
+		if (object) then
+
+			object:ClearAllPoints()
+
+
+			table.remove(self.DB.buttons, id) --this is somewhat redundant if deleting a bar, but it doesn't hurt and is important for individual button deletions
+			table.remove(self.buttons, id)
+
+
+			if (object.binder) then
+				object.binder:ClearBindings()
+			end
+
+			object:SetParent(TRASHCAN)
+
+
+		end
+
+		self:SetObjectLoc()
+		self:SetPerimeter()
+		self:SetSize()
+		self:Update()
+	end
+
+end
+-----------------------------------
 
 
 ------------------------------------------------------------
@@ -82,17 +335,6 @@ end
 local function round(num, idp)
 	local mult = 10^(idp or 0)
 	return math.floor(num * mult + 0.5) / mult
-end
-
-local function tFind(table, value)
-	local index = 1;
-	while table[index] do
-		if ( value == table[index] ) then
-			return index;
-		end
-		index = index + 1;
-	end
-	return 0;
 end
 
 -------------------------------------------------------------------------------
@@ -135,8 +377,6 @@ function BAR:AutoHideUpdate()
 						else
 							self.handler:SetAlpha(1)
 						end
-					else
-						self.seen = 1;
 					end
 
 				end
@@ -148,16 +388,15 @@ function BAR:AutoHideUpdate()
 						else
 							self.handler:SetAlpha(0)
 						end
-					else
-						self.seen = 0;
 					end
 				end
 			end
 		end
 	end
 
+end
 
-
+function BAR:AlphaUpUpdate()
 	if (self.data.alphaUp and self.handler~=nil) then
 
 		if (self:IsShown()) then
@@ -174,8 +413,6 @@ function BAR:AutoHideUpdate()
 						else
 							self.handler:SetAlpha(1)
 						end
-					else
-						self.seen = 1;
 					end
 
 				else
@@ -188,8 +425,6 @@ function BAR:AutoHideUpdate()
 								else
 									self.handler:SetAlpha(1)
 								end
-							else
-								self.seen = 1;
 							end
 						else
 							if (self.handler:GetAlpha() > self.data.alpha) then
@@ -198,8 +433,6 @@ function BAR:AutoHideUpdate()
 								else
 									self.handler:SetAlpha(self.data.alpha)
 								end
-							else
-								self.seen = 0;
 							end
 						end
 					else
@@ -209,8 +442,6 @@ function BAR:AutoHideUpdate()
 							else
 								self.handler:SetAlpha(self.data.alpha)
 							end
-						else
-							self.seen = 0;
 						end
 					end
 				end
@@ -225,8 +456,6 @@ function BAR:AutoHideUpdate()
 						else
 							self.handler:SetAlpha(1)
 						end
-					else
-						self.seen = 1;
 					end
 
 				else
@@ -239,8 +468,6 @@ function BAR:AutoHideUpdate()
 								else
 									self.handler:SetAlpha(1)
 								end
-							else
-								self.seen = 1;
 							end
 						else
 							if (self.handler:GetAlpha() > self.data.alpha) then
@@ -249,8 +476,6 @@ function BAR:AutoHideUpdate()
 								else
 									self.handler:SetAlpha(self.data.alpha)
 								end
-							else
-								self.seen = 0;
 							end
 						end
 					else
@@ -260,8 +485,6 @@ function BAR:AutoHideUpdate()
 							else
 								self.handler:SetAlpha(k.alpha)
 							end
-						else
-							self.seen = 0;
 						end
 					end
 				end
@@ -275,8 +498,6 @@ function BAR:AutoHideUpdate()
 						else
 							self.handler:SetAlpha(1)
 						end
-					else
-						self.seen = 1;
 					end
 				else
 					if (self.handler:GetAlpha() > self.data.alpha) then
@@ -285,14 +506,11 @@ function BAR:AutoHideUpdate()
 						else
 							self.handler:SetAlpha(self.data.alpha)
 						end
-					else
-						self.seen = 0;
 					end
 				end
 			end
 		end
 	end
-
 end
 
 
@@ -327,6 +545,16 @@ function BAR:SetAutoHide()
 		end
 	else
 		self:CancelTimer(self.autoHideTimer)
+	end
+end
+
+function BAR:SetAlphaUp()
+	if (self.data.alphaUp) then
+		if self:TimeLeft(self.alphaUpTimer) == 0 then --safety check to make sure we don't re-set an already active timer
+			self.alphaUpTimer = self:ScheduleRepeatingTimer("AlphaUpUpdate", .05)
+		end
+	else
+		self:CancelTimer(self.alphaUpTimer)
 	end
 end
 
@@ -844,14 +1072,36 @@ function BAR:Update(show, hide)
 	end
 
 	self:SetHidden(handler, show, hide)
-	self:SetAutoHide(handler)
+	self:SetAutoHide()
+	self:SetAlphaUp()
 	self.text:SetText(self.data.name)
 	handler:SetAlpha(self.data.alpha)
 
 	if (not hide and NeuronBarEditor and NeuronBarEditor:IsVisible()) then
 		Neuron.NeuronGUI:UpdateBarGUI()
 	end
+
+	if self.data.auraInd == true then
+		self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+	else
+		self:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+	end
+
 end
+
+-------------------------------------------------------
+
+function BAR:UNIT_SPELLCAST_SUCCEEDED(_, ...)
+	local unit = select(1,...)
+	if (Neuron.unitAuras[unit]) then
+		if (... == "player") then
+			Neuron.ACTIONBUTTON.updateAuraInfo(unit)
+		end
+	end
+end
+
+-------------------------------------------------------
+
 
 
 function BAR:GetPosition(oFrame)
@@ -929,24 +1179,26 @@ end
 
 
 ---loads all the object stored for a given bar
-function BAR:LoadObjects(init)
+function BAR:LoadObjects()
 	local spec
 
 	if (self.data.multiSpec) then
-		spec = GetSpecialization()
+		spec = Neuron.activeSpec
 	else
 		spec = 1
 	end
 
 	for i, object in ipairs(self.buttons) do
 		---all of these objects need to stay as "object:****" because which SetData/LoadData/etc is bar dependent. Symlinks are made to the asociated bar objects to these class functions
-		object:SetData(self)
 		object:LoadData(spec, self.handler:GetAttribute("activestate"))
+		object:SetData(self)
 		object:SetType()
-		object:SetAux()
+
+		if Neuron.registeredBarData[object.class] and Neuron.registeredBarData[object.class].keybindable then
+			object.binder = Neuron.KEYBINDER.new(object)
+		end
 
 		object:SetObjectVisibility()
-
 	end
 end
 
@@ -988,7 +1240,6 @@ function BAR:SetObjectLoc()
 		if (num < count) then
 			object:ClearAllPoints()
 			object:SetParent(self.handler)
-			object:SetAttribute("lastPos", nil)
 			width = object:GetWidth(); height = object:GetHeight()
 
 			if (count > origCol and mod(count, origCol)~=0 and rAdjust == 1) then
@@ -1042,16 +1293,11 @@ function BAR:SetObjectLoc()
 				end
 			end
 
-			lastObj = object
 			num = num + 1
 			object:SetAttribute("barPos", num)
 			object:SetData(self)
 			object:SetData(self)
 		end
-	end
-
-	if (lastObj) then
-		lastObj:SetAttribute("lastPos", true)
 	end
 end
 
@@ -1466,6 +1712,14 @@ function BAR:UpdateObjects()
 	end
 end
 
+function BAR:UpdateIcons()
+	for _, object in pairs(self.buttons) do
+		if (object) then
+			object:UpdateIcon()
+		end
+	end
+end
+
 function BAR:ChangeBar()
 	local newBar = false
 
@@ -1476,8 +1730,6 @@ function BAR:ChangeBar()
 
 			self.selected = true
 			self.action = nil
-
-			self:SetFrameLevel(3)
 
 			if (self.data.hidden) then
 				self:SetBackdropColor(1,0,0,0.6)
@@ -1503,7 +1755,6 @@ function BAR:ChangeBar()
 					v:SetBackdropColor(0,0,0,0.4)
 				end
 
-				v:SetFrameLevel(2)
 				v.selected = false
 				v.microAdjust = false
 				v:EnableKeyboard(false)
@@ -1521,282 +1772,6 @@ function BAR:ChangeBar()
 	end
 
 	return newBar
-end
-
-function BAR:DeleteBar()
-	local handler = self.handler
-
-	handler:SetAttribute("state-current", "homestate")
-	handler:SetAttribute("state-last", "homestate")
-	handler:SetAttribute("showstates", "homestate")
-	self:ClearStates(handler, "homestate")
-
-	for state, values in pairs(MAS) do
-		if (self.data[state] and self[state] and self[state].registered) then
-			if (state == "custom" and self.data.customRange) then
-				local start = tonumber(string.match(self.data.customRange, "^%d+"))
-				local stop = tonumber(string.match(self.data.customRange, "%d+$"))
-
-				if (start and stop) then
-					self:ClearStates(handler, state)--, start, stop)
-				end
-			else
-				self:ClearStates(handler, state)--, values.rangeStart, values.rangeStop)
-			end
-		end
-	end
-
-	self:RemoveObjectsFromBar(#self.buttons)
-
-	self:SetScript("OnClick", function() end)
-	self:SetScript("OnDragStart", function() end)
-	self:SetScript("OnDragStop", function() end)
-	self:SetScript("OnEnter", function() end)
-	self:SetScript("OnLeave", function() end)
-	self:SetScript("OnKeyDown", function() end)
-	self:SetScript("OnKeyUp", function() end)
-	self:SetScript("OnShow", function() end)
-	self:SetScript("OnHide", function() end)
-
-	self:SetWidth(36)
-	self:SetHeight(36)
-	self:ClearAllPoints()
-	self:SetPoint("CENTER")
-	self:Hide()
-
-	table.remove(self.barDB, self.DB.id) --removes the bar from the database, along with all of its buttons
-
-	for k,v in pairs(self.barDB) do
-
-		local oldID = v.id --keep track of the oldID
-
-		v.id = k --update the bar id to match the new index value, this is VERY important
-
-		if v.name == self.barLabel.." "..oldID then --if the name is name according to the oldID, update the name to the new ID (i.e. if they never changed the name, we don't want to overwrite custom names)
-			v.name = self.barLabel.." "..v.id
-		end
-	end
-
-
-	table.remove(Neuron.BARIndex, self.index)
-
-	if (NeuronBarEditor and NeuronBarEditor:IsVisible()) then
-		Neuron.NeuronGUI:UpdateBarGUI()
-	end
-
-	for i,v in pairs(Neuron.BARIndex) do --update bars to reflect new names, if they have new names
-		v:Update()
-	end
-
-end
-
-
-function BAR:CreateNewBar(class, id, defaults)
-
-	if (class and Neuron.registeredBarData[class]) then
-
-		local bar, newBar = Neuron.BAR:CreateBar(class, id)
-
-		if (defaults) then
-			bar:SetDefaults(defaults)
-
-			for i=1,#defaults.buttons do
-				Neuron.BUTTON:CreateNewObject(class, i, bar, defaults.buttons[i])
-			end
-
-		else
-			for i=1,#bar.DB.buttons do
-				Neuron.BUTTON:CreateNewObject(class, i, bar)
-			end
-		end
-
-		if (newBar) then
-
-			Neuron.BUTTON:CreateNewObject(class, 1, bar) --add at least 1 button to a new bar
-
-			bar:Load()
-			bar:ChangeBar()
-
-			---------------------------------
-			if (class == "ExtraBar") then --this is a hack to get around an issue where the extrabar wasn't autohiding due to bar visibility states. There most likely a way better way to do this in the future. FIX THIS!
-				bar.data.hidestates = ":extrabar0:"
-				bar.vischanged = true
-				bar:Update()
-			end
-			if (class == "PetBar") then --this is a hack to get around an issue where the extrabar wasn't autohiding due to bar visibility states. There most likely a way better way to do this in the future. FIX THIS!
-				bar.data.hidestates = ":pet0:"
-				bar.vischanged = true
-				bar:Update()
-			end
-			-----------------------------------
-		end
-
-		return bar
-	else
-		Neuron.PrintBarTypes()
-	end
-end
-
-Neuron.CreateNewBar = BAR.CreateNewBar
-
-
-
-function BAR:CreateBar(class, id)
-	local data = Neuron.registeredBarData[class]
-	local newBar
-
-	local index = #Neuron.BARIndex + 1
-
-	if (data) then
-		if (not id) then
-			id = #data.barDB + 1
-			newBar = true
-		end
-
-		---this is the create of our bar object frame
-		local bar
-		if _G["Neuron"..data.barType..id] then
-			bar = Neuron.BAR:new("Neuron"..data.barType..random(1000,10000000)) --in the case of trying to create a bar on a frame that already exists, create a random frame ID for this session only
-		else
-			bar = Neuron.BAR:new("Neuron"..data.barType..id)
-		end
-
-		for key,value in pairs(data) do
-			bar[key] = value
-		end
-
-		if not data.barDB[id] then --if the database for a bar doesn't exist (because it's a new bar?
-			data.barDB[id] = {}
-		end
-		bar.DB = data.barDB[id]
-
-		bar.buttons = {}
-
-		bar.index = index
-		bar.DB.id = id
-		bar.class = class
-		bar.stateschanged = true
-		bar.vischanged =true
-		bar.elapsed = 0
-		bar.click = nil
-		bar.dragged = false
-		bar.selected = false
-		bar.toggleframe = bar
-		bar.microAdjust = false
-		bar.vis = {}
-		bar.text:Hide()
-		bar.message:Hide()
-		bar.messagebg:Hide()
-
-		bar:SetWidth(375)
-		bar:SetHeight(40)
-		bar:SetBackdrop({bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-		                 edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-		                 tile = true, tileSize = 16, edgeSize = 12,
-		                 insets = {left = 4, right = 4, top = 4, bottom = 4}})
-		bar:SetBackdropColor(0,0,0,0.4)
-		bar:SetBackdropBorderColor(0,0,0,0)
-		bar:SetFrameLevel(2)
-		bar:RegisterForClicks("AnyDown", "AnyUp")
-		bar:RegisterForDrag("LeftButton")
-		bar:SetMovable(true)
-		bar:EnableKeyboard(false)
-		bar:SetPoint("CENTER", "UIParent", "CENTER", 0, 0)
-
-		bar:SetScript("OnClick", function(self, ...) self:OnClick(...) end)
-		bar:SetScript("OnDragStart", function(self, ...) self:OnDragStart(...) end)
-		bar:SetScript("OnDragStop", function(self, ...) self:OnDragStop(...) end)
-		bar:SetScript("OnEnter", function(self, ...) self:OnEnter(...) end)
-		bar:SetScript("OnLeave", function(self, ...) self:OnLeave(...) end)
-		bar:SetScript("OnKeyDown", function(self, key, onupdate) self:OnKeyDown(key, onupdate) end)
-		bar:SetScript("OnKeyUp", function(self, key) self:OnKeyUp(key) end)
-		bar:SetScript("OnShow", function(self) self:OnShow() end)
-		bar:SetScript("OnHide", function(self) self:OnHide() end)
-
-
-		bar:CreateDriver()
-		bar:CreateHandler()
-		bar:CreateWatcher()
-
-		bar:LoadData()
-
-		if (not newBar) then
-			bar:Hide()
-		end
-
-		Neuron.BARIndex[index] = bar
-
-		return bar, newBar
-	end
-end
-
-
-function BAR:AddObjectsToBar(num)
-
-	num = tonumber(num)
-
-	if (not num) then
-		num = 1
-	end
-
-	for i=1,num do
-
-		local object
-		local id = #self.buttons + 1
-
-		if (#self.buttons < self.objMax) then
-			object = Neuron.BUTTON:CreateNewObject(self.class, id, self)
-		end
-
-	end
-
-	self:LoadObjects()
-	self:SetObjectLoc()
-	self:SetPerimeter()
-	self:SetSize()
-	self:Update()
-	self:UpdateObjectVisibility()
-
-end
-
-
-function BAR:RemoveObjectsFromBar(num)
-
-	if (not num) then
-		num = 1
-	end
-
-
-	for i=1,num do
-
-		local id = #self.buttons --always the last button
-
-		local object = self.buttons[id]
-
-		if (object) then
-
-			object:ClearAllPoints()
-
-
-			table.remove(self.DB.buttons, id) --this is somewhat redundant if deleting a bar, but it doesn't hurt and is important for individual button deletions
-			table.remove(self.buttons, id)
-
-
-			if (object.binder) then
-				Neuron.NeuronBinder:ClearBindings(object)
-			end
-
-			object:SetParent(TRASHCAN)
-
-
-		end
-
-		self:SetObjectLoc()
-		self:SetPerimeter()
-		self:SetSize()
-		self:Update()
-	end
-
 end
 
 
@@ -2977,10 +2952,32 @@ function BAR:AuraIndSet(msg, gui, checked, query)
 	self:Update()
 end
 
+function BAR:SetBorderStyle(msg, gui, checked, query)
+	if (query) then
+		return self.data.showBorderStyle
+	end
+
+	if (gui) then
+		if (checked) then
+			self.data.showBorderStyle = true
+		else
+			self.data.showBorderStyle = false
+		end
+	else
+		if (self.data.showBorderStyle) then
+			self.data.showBorderStyle = false
+		else
+			self.data.showBorderStyle = true
+		end
+	end
+
+	self:UpdateIcons()
+end
+
 
 function BAR:Load()
 	self:SetPosition()
-	self:LoadObjects(true)
+	self:LoadObjects()
 	self:SetObjectLoc()
 	self:SetPerimeter()
 	self:SetSize()

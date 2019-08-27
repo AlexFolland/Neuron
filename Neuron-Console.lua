@@ -64,19 +64,20 @@ local slashFunctions = {
 	{L["CountText"], L["CountText_Description"], "CountTextSet"},
 	{L["CDText"], L["CDText_Description"], "CDTextSet"},
 	{L["CDAlpha"], L["CDAlpha_Description"], "CDAlphaSet"},
-	{L["AuraText"], L["AuraText_Description"], "AuraTextSet"},
+	--{L["AuraText"], L["AuraText_Description"], "AuraTextSet"},
 	{L["AuraInd"], L["AuraInd_Description"], "AuraIndSet"},
 	{L["UpClick"], L["UpClick_Description"], "UpClicksSet"},
 	{L["DownClick"], L["DownClick_Description"], "DownClicksSet"},
 	{L["BarTypes"], L["BarTypes_Description"], "PrintBarTypes"},
 	{L["BlizzUI"], L["BlizzUI_Description"], "ToggleBlizzUI"},
+
 }
 
 
----New Slash functionality
+--New Slash functionality
 function Neuron:slashHandler(input)
 
-	if (strlen(input)==0 or input:lower() == "help") then
+	if (string.len(input)==0 or input:lower() == "help") then
 		Neuron:printSlashHelp()
 		return
 	end
@@ -110,7 +111,7 @@ function Neuron:slashHandler(input)
 			if (Neuron[func]) then
 				Neuron[func](Neuron, args[1])
 			elseif (bar and bar[func]) then
-				---because we're calling a variable func name, we can't use the ":" notation, so we have to explicitely state the parent object as the first param
+				--because we're calling a variable func name, we can't use the ":" notation, so we have to explicitly state the parent object as the first param
 				bar[func](bar, args[1]) --not sure what to do for more than 1 arg input
 			else
 				Neuron:Print(L["No bar selected or command invalid"])
@@ -162,32 +163,13 @@ end
 
 
 function Neuron:PrintBarTypes()
-	local data, index, high = {}, 1, 0
-
-	for k,v in pairs(Neuron.registeredBarData) do
-
-		local barType;
-		index = tonumber(v.createMsg:match("%d+"))
-		barType = v.createMsg:gsub("%d+","")
-
-		if (index and barType) then
-			data[index] = {k, barType}
-			if (index > high) then high = index end
-		end
-
-	end
-
-	for i=1,high do if (not data[i]) then data[i] = 0 end end
-
 
 	Neuron:Print("---------------------------------------------------")
 	Neuron:Print("     "..L["How to use"]..":   ".."/neuron".." "..L["Create"]:lower().." <"..L["Option"]:lower()..">")
 	Neuron:Print("---------------------------------------------------")
 
-	for k,v in ipairs(data) do
-		if (type(v) == "table") then
-			Neuron:Print("    |cff00ff00"..v[1]..":|r "..v[2])
-		end
+	for k,v in pairs(Neuron.registeredBarData) do
+		Neuron:Print("    |cff00ff00"..k..":|r "..v.barLabel)
 	end
 
 end

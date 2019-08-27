@@ -29,79 +29,64 @@ local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 LibStub("AceBucket-3.0"):Embed(BUTTON)
 LibStub("AceEvent-3.0"):Embed(BUTTON)
 LibStub("AceTimer-3.0"):Embed(BUTTON)
+LibStub("AceHook-3.0"):Embed(BUTTON)
 
 
 ---Constructor: Create a new Neuron BUTTON object (this is the base object for all Neuron button types)
----@param name string @ Name given to the new button frame
+---@param bar BAR @Bar Object this button will be a child of
+---@param buttonID number @Button ID that this button will be assigned
+---@param baseObj BUTTON @Base object class for this specific button
+---@param barClass string @Class type for the bar the button will be on
+---@param objType string @Type of object this button will be
+---@param template string @The template name that this frame will derive from
 ---@return BUTTON @ A newly created BUTTON object
-function BUTTON:new(name)
-	--must be overwritten in extended classes!
+function BUTTON.new(bar, buttonID,baseObj, barClass, objType, template)
+	local newButton
+	local newButtonName = bar:GetName().."_"..objType..buttonID
+
+	if _G[newButtonName] then --try to reuse a current frame if it exists instead of making a new one
+		newButton = _G[newButtonName]
+	else
+		newButton = CreateFrame("CheckButton", newButtonName, UIParent, template) --create the new button frame using the desired parameters
+		setmetatable(newButton, {__index = baseObj})
+	end
+
+	----------------------
+	--returns a table of the names of all the child objects for a given frame
+	local objects = Neuron:GetParentKeys(newButton)
+	--populates the button with all the Icon,Shine,Cooldown frame references
+	for k,v in pairs(objects) do
+		local name = (v):gsub(newButton:GetName(), "")
+		newButton[name:lower()] = _G[v]
+	end
+	-----------------------
+
+	--crosslink the bar and button for easy refrencing
+	bar.buttons[buttonID] = newButton
+	newButton.bar = bar
+
+	newButton.class = barClass
+	newButton.id = buttonID
+	newButton.objType = objType:upper()
+
+
+	if not bar.DB.buttons[buttonID] then --if the database for a bar doesn't exist (because it's a new bar) make a new table
+		bar.DB.buttons[buttonID] = {}
+	end
+	newButton.DB = bar.DB.buttons[buttonID] --set our button database table as the DB for our object
+
+	--this is a hack to add some unique information to an object so it doesn't get wiped from the database
+	if newButton.DB.config then
+		newButton.DB.config.date = date("%m/%d/%y %H:%M:%S")
+	end
+
+	return newButton
 end
 
 -------------------------------------------------
 -----Base Methods that all buttons have----------
 ---These will often be overwritten per bar type--
 ------------------------------------------------
-
-
-function BUTTON:CreateNewObject(class, id, bar, defaults)
-	local data = Neuron.registeredBarData[class]
-
-	if (data) then
-
-		--calls new object constructor for the appropriate class type
-
-		local object
-
-		if _G[bar:GetName().."_"..data.objPrefix..id] then
-			object = _G[bar:GetName().."_"..data.objPrefix..id] --if we removed some objects from a bar, those frames still exists, this allows us to recapture and repurpose those discarded frames
-		else
-			object = data.objTemplate:new(bar:GetName().."_"..data.objPrefix..id)
-		end
-
-
-		--returns a table of the names of all the child objects for a given frame
-		local objects = Neuron:GetParentKeys(object)
-		--populates the button with all the Icon,Shine,Cooldown frame references
-		for k,v in pairs(objects) do
-			local name = (v):gsub(object:GetName(), "")
-			object[name:lower()] = _G[v]
-		end
-
-		bar.buttons[id] = object --add this object to our buttons table for this bar
-
-		if not bar.DB.buttons[id] then --if the database for a bar doesn't exist (because it's a new bar) make a new table
-			bar.DB.buttons[id] = {}
-		end
-		object.DB = bar.DB.buttons[id] --set our button database table as the DB for our object
-
-		object.bar = bar
-
-		object.class = class
-		object.id = id
-		--object:SetID(id)
-		object.objType = data.objType:gsub("%s", ""):upper()
-		object:LoadData(GetActiveSpecGroup(), "homestate")
-
-		object.elapsed = 0
-
-
-		if (defaults) then
-			object:SetDefaults(defaults)
-		end
-
-		--this is a hack to add some unique information to an object so it doesn't get wiped from the database
-		if object.DB.config then
-			object.DB.config.date = date("%m/%d/%y %H:%M:%S")
-		end
-
-		object:LoadAux()
-
-		return object
-	end
-end
-
-
 
 
 function BUTTON:ChangeObject(object)
@@ -157,18 +142,26 @@ function BUTTON:ChangeObject(object)
 end
 
 
-function BUTTON:SetCooldownTimer(start, duration, enable, showCountdownTimer, modrate, color1, color2, showCountdownAlpha, charges)
+function BUTTON:SetCooldownTimer(start, duration, enable, showCountdownTimer, modrate, color1, color2, showCountdownAlpha, charges, maxCharges)
 
-	if ( start and start > 0 and duration > 0 and enable > 0) then
+	if start and start > 0 and duration > 0 and enable > 0 then
 
-		if charges and charges > 0 then
-			self.iconframecooldown:SetDrawSwipe(false); --disable the swipe animation when there are charges left, only keeping the sweeping highlight animation
-		else
-			self.iconframecooldown:SetDrawSwipe(true);
+		if duration > 2 then --sets non GCD cooldowns
+			if charges and charges > 0 and maxCharges > 1 then
+				CooldownFrame_Set(self.iconframechargecooldown, start, duration, enable, true, modrate) --set clock style cooldown animation. Show Draw Edge.
+			else
+				CooldownFrame_Set(self.iconframecooldown, start, duration, enable, true, modrate) --set clock style cooldown animation for ability cooldown. Show Draw Edge.
+			end
+		else --sets GCD cooldowns
+			CooldownFrame_Set(self.iconframecooldown, start, duration, enable, false, modrate) --don't show the Draw Edge for the GCD
 		end
 
-		CooldownFrame_Set(self.iconframecooldown, start, duration, enable, true, modrate) --set clock style cooldown animation
+		-- Clear the charge cooldown frame if it is still going from a different ability in a different state (i.e. frenzied regen in the same spot as Swiftmend)
+		if not charges or charges == maxCharges or maxCharges == 1 then --if ability does not support charges then clear the charge cooldown frame
+			CooldownFrame_Clear(self.iconframechargecooldown)
+		end
 
+		--this is only for abilities that have CD's >4 sec. Any less than that and we don't want to track the CD with text or alpha, just with the standard animation
 		if (duration >= Neuron.TIMERLIMIT) then --if spells have a cooldown less than 4sec then don't show a full cooldown
 
 			if (showCountdownTimer or showCountdownAlpha) then --only set a timer if we explicitely want to (this saves CPU for a lot of people)
@@ -188,12 +181,13 @@ function BUTTON:SetCooldownTimer(start, duration, enable, showCountdownTimer, mo
 				--Get the remaining time left so when we re-call the timer when switching back to a state it has the correct time left instead of the full time
 				local timeleft = duration-(GetTime()-start)
 
-				if timeleft > 86400 then --safety check in case some timeleft value comes back rediculously long. This happened once after a weird game glitch, it came back as like 42000000. We should cap it at a day max
+				--safety check in case some timeleft value comes back ridiculously long. This happened once after a weird game glitch, it came back as like 42000000. We should cap it at 1 day max (even that's overkill)
+				if timeleft > 86400 then
 					timeleft = 86400
 				end
 
-				--set timer that is both our cooldown counter, but also the cancles the repeating updating timer at the end
-				self.iconframecooldown.cooldownTimer = self:ScheduleTimer(function() self:CancelTimer(self.iconframecooldown.cooldownUpdateTimer) end, timeleft + 1) --add 1 to the length of the timer to keep it going for 1 second once the spell cd is over
+				--set timer that is both our cooldown counter, but also the cancels the repeating updating timer at the end
+				self.iconframecooldown.cooldownTimer = self:ScheduleTimer(function() self:CancelTimer(self.iconframecooldown.cooldownUpdateTimer) end, timeleft + 1) --add 1 to the length of the timer to keep it going for 1 second once the spell cd is over (to fully finish the animations/alpha transition)
 
 
 				--clear old timer before starting a new one
@@ -214,22 +208,34 @@ function BUTTON:SetCooldownTimer(start, duration, enable, showCountdownTimer, mo
 			--Cancel Timers as they're unnecessary
 			self:CancelTimer(self.iconframecooldown.cooldownUpdateTimer)
 			self.iconframecooldown.timer:SetText("")
+			self.iconframecooldown.button:SetAlpha(1)
 			self.iconframecooldown.showCountdownTimer = false
 			self.iconframecooldown.showCountdownAlpha = false
 		end
 	else
 		--cleanup so on state changes the cooldowns don't persist
 		self:CancelTimer(self.iconframecooldown.cooldownUpdateTimer)
-		CooldownFrame_Set(self.iconframecooldown, 0, 0,0)
 		self.iconframecooldown.timer:SetText("")
+
 		self.iconframecooldown.button:SetAlpha(1)
+
 		self.iconframecooldown.showCountdownTimer = false
 		self.iconframecooldown.showCountdownAlpha = false
+
+		--clear previous sweeping cooldown animations
+		CooldownFrame_Clear(self.iconframecooldown) --clear the cooldown frame
+		if not charges or charges == maxCharges or maxCharges == 1 then --if ability does not support charges then clear the charge cooldown frame
+			CooldownFrame_Clear(self.iconframechargecooldown)
+		end
 	end
+
+	--this is important for items like the ExtraActionButton who use Alpha to show and hide itself (to avoid in-combat restrictions). Without it the button would stay visible
+	self:SetObjectVisibility()
 end
 
 
---this function runs in real time and is controlled from the OnUpdate function in Neuron.lua
+---this function is called by a repeating timer set in SetCooldownTimer every 0.2sec, which is automatically is set to terminate 1sec after the cooldown timer ends
+---this function's job is to overlay the countdown text on a button and set the button's cooldown alpha
 function BUTTON:CooldownCounterUpdate()
 
 	local coolDown, formatted, size
@@ -255,30 +261,30 @@ function BUTTON:CooldownCounterUpdate()
 
 		else
 
-			if (coolDown >= 86400) then ---append a "d" if the timer is longer than 1 day
+			if (coolDown >= 86400) then --append a "d" if the timer is longer than 1 day
 				formatted = string.format( "%.0f", coolDown/86400)
 				formatted = formatted.."d"
 				size = self.iconframecooldown.button:GetWidth()*0.3
 				self.iconframecooldown.timer:SetTextColor(normalcolor[1], normalcolor[2], normalcolor[3])
 
-			elseif (coolDown >= 3600) then ---append a "h" if the timer is longer than 1 hour
+			elseif (coolDown >= 3600) then --append a "h" if the timer is longer than 1 hour
 				formatted = string.format( "%.0f",coolDown/3600)
 				formatted = formatted.."h"
 				size = self.iconframecooldown.button:GetWidth()*0.3
 				self.iconframecooldown.timer:SetTextColor(normalcolor[1], normalcolor[2], normalcolor[3])
 
-			elseif (coolDown >= 60) then ---append a "m" if the timer is longer than 1 min
+			elseif (coolDown >= 60) then --append a "m" if the timer is longer than 1 min
 				formatted = string.format( "%.0f",coolDown/60)
 				formatted = formatted.."m"
 				size = self.iconframecooldown.button:GetWidth()*0.3
 				self.iconframecooldown.timer:SetTextColor(normalcolor[1], normalcolor[2], normalcolor[3])
 
-			elseif (coolDown >=6) then ---this is the 'normal' countdown text state
+			elseif (coolDown >=6) then --this is the 'normal' countdown text state
 				formatted = string.format( "%.0f",coolDown)
 				size = self.iconframecooldown.button:GetWidth()*0.45
 				self.iconframecooldown.timer:SetTextColor(normalcolor[1], normalcolor[2], normalcolor[3])
 
-			elseif (coolDown < 6) then ---this is the countdown text state but with the text larger and set to the expire color (usually red)
+			elseif (coolDown < 6) then --this is the countdown text state but with the text larger and set to the expire color (usually red)
 				formatted = string.format( "%.0f",coolDown)
 				size = self.iconframecooldown.button:GetWidth()*0.6
 				if (expirecolor) then
@@ -462,25 +468,18 @@ end
 
 
 --TODO: This should be consolodated as each child has a VERY similar function
-function BUTTON:LoadData(spec, state)
-
+function BUTTON:LoadData()
 	self.config = self.DB.config
 	self.keys = self.DB.keys
 	self.data = self.DB.data
-
 end
+
 
 function BUTTON:SetObjectVisibility(show)
-	--empty--
+ --empty
 end
 
-function BUTTON:SetAux()
-	self:SetSkinned()
-end
 
-function BUTTON:LoadAux()
-	--empty--
-end
 
 function BUTTON:SetDefaults(defaults)
 	if defaults then
@@ -504,7 +503,7 @@ function BUTTON:SetDefaults(defaults)
 	end
 end
 
-function BUTTON:SetType(save, kill, init)
+function BUTTON:SetType()
 	--empty--
 end
 
@@ -573,19 +572,54 @@ function BUTTON:GetSkinned()
 end
 
 
+function BUTTON:HasAction()
+	local hasAction = self.data.macro_Text
 
+	if (self.actionID) then
+		if (self.actionID == 0) then
+			return true
+		else
+			return HasAction(self.actionID)
+		end
 
-function BUTTON:UpdateTimers(...)
-
-	self:UpdateCooldown()
-
-	for k in pairs(Neuron.unitAuras) do
-		self:UpdateAuraWatch(k, self.macrospell)
+	elseif (hasAction and #hasAction>0) then
+		return true
+	else
+		return false
 	end
 end
 
 
-function BUTTON:UpdateCooldown(update)
+---Updates the buttons "count", i.e. the spell charges
+function BUTTON:UpdateSpellCount(spell)
+	local charges, maxCharges = GetSpellCharges(spell)
+
+	local count = GetSpellCount(spell)
+
+	if (maxCharges and maxCharges > 1) then
+		self.count:SetText(charges)
+	elseif count and count > 0 then
+		self.count:SetText(count)
+	else
+		self.count:SetText("")
+	end
+end
+
+
+---Updates the buttons "count", i.e. the item stack size
+function BUTTON:UpdateItemCount(item)
+
+	local count = GetItemCount(item,nil,true)
+
+	if (count and count > 1) then
+		self.count:SetText(count)
+	else
+		self.count:SetText("")
+	end
+end
+
+
+function BUTTON:UpdateCooldown()
 	local spell, item, show = self.macrospell, self.macroitem, self.macroshow
 
 	if (self.actionID) then
@@ -602,7 +636,40 @@ function BUTTON:UpdateCooldown(update)
 	elseif (item and #item>0) then
 		self:SetItemCooldown(item)
 	else
-		self:SetCooldownTimer(0, 0, 0)
+		--this is super important for removing CD's from empty buttons, like when switching states. You don't want the CD from one state to show on a different state.
+		self:SetCooldownTimer()
+	end
+end
+
+
+function BUTTON:SetSpellCooldown(spell)
+
+	if type(spell) == "string" then
+		spell = (spell):lower()
+	end
+
+	local start, duration, enable, modrate = GetSpellCooldown(spell)
+	local charges, maxCharges, chStart, chDuration, chargemodrate = GetSpellCharges(spell)
+
+	if (charges and maxCharges and maxCharges > 0 and charges < maxCharges) then
+		self:SetCooldownTimer(chStart, chDuration, enable, self.cdText, chargemodrate, self.cdcolor1, self.cdcolor2, self.cdAlpha, charges, maxCharges) --only evoke charge cooldown (outer border) if charges are present and less than maxCharges (this is the case with the GCD)
+	end
+
+	self:SetCooldownTimer(start, duration, enable, self.cdText, modrate, self.cdcolor1, self.cdcolor2, self.cdAlpha, charges, maxCharges) --call standard cooldown, handles both abilty cooldowns and GCD
+
+end
+
+
+
+function BUTTON:SetItemCooldown(item)
+
+	local id = NeuronItemCache[item]
+
+	if (id) then
+
+		local start, duration, enable, modrate = GetItemCooldown(id)
+
+		self:SetCooldownTimer(start, duration, enable, self.cdText, modrate, self.cdcolor1, self.cdcolor2, self.cdAlpha)
 	end
 end
 
@@ -735,6 +802,55 @@ function BUTTON:AuraCounterUpdate()
 end
 
 
-function BUTTON:UpdateButton()
-	--empty--
+-----------------------------------------------------
+--------------General Update Functions---------------
+-----------------------------------------------------
+
+function BUTTON:UpdateAll()
+	self:UpdateData()
+	self:UpdateButton()
+	self:UpdateIcon()
+	self:UpdateState()
+	self:UpdateTimers()
+	self:UpdateNormalTexture()
 end
+
+
+function BUTTON:UpdateData()
+	-- empty --
+end
+
+function BUTTON:UpdateButton()
+	-- empty --
+end
+
+function BUTTON:UpdateIcon()
+	-- empty --
+end
+
+function BUTTON:UpdateState()
+	-- empty --
+end
+
+
+function BUTTON:UpdateTimers()
+	self:UpdateCooldown()
+	for k in pairs(Neuron.unitAuras) do
+		self:UpdateAuraWatch(k, self.macrospell)
+	end
+end
+
+function BUTTON:UpdateNormalTexture()
+	if (not self:GetSkinned()) then
+		if (self:HasAction()) then
+			self:SetNormalTexture(self.hasAction or "")
+			self:GetNormalTexture():SetVertexColor(1,1,1,1)
+		else
+			self:SetNormalTexture(self.noAction or "")
+			self:GetNormalTexture():SetVertexColor(1,1,1,0.5)
+		end
+	end
+end
+
+----------------------------------------------------------
+----------------------------------------------------------

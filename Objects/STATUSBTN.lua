@@ -47,7 +47,7 @@ local BrawlerGuildFactions = {
 	[1374] = true, --Horde
 }
 
-local CastWatch, RepWatch, MirrorWatch, MirrorBars, Session = {}, {}, {}, {}, {}
+local CastWatch, RepWatch, MirrorWatch, MirrorBars = {}, {}, {}, {}
 
 local sbStrings = {
 	cast = {
@@ -65,7 +65,7 @@ local sbStrings = {
 	},
 	rep = {
 		[1] = { L["None"], function(sb) return "" end },
-		[2] = { L["Faction"], function(sb) if (RepWatch[sb.repID]) then return RepWatch[sb.repID].rep end end }, ---TODO:should probably do the same as above here, just in case people have more than 1 rep bar
+		[2] = { L["Faction"], function(sb) if (RepWatch[sb.repID]) then return RepWatch[sb.repID].rep end end }, --TODO:should probably do the same as above here, just in case people have more than 1 rep bar
 		[3] = { L["Current/Next"], function(sb) if (RepWatch[sb.repID]) then return RepWatch[sb.repID].current end end },
 		[4] = { L["Percent"], function(sb) if (RepWatch[sb.repID]) then return RepWatch[sb.repID].percent end end },
 		[5] = { L["Bubbles"], function(sb) if (RepWatch[sb.repID]) then return RepWatch[sb.repID].bubbles end end },
@@ -118,28 +118,31 @@ local BarBorders = {
 Neuron.BarBorders = BarBorders
 
 local BarOrientations = {
-	[1] = L["Horizontal"],
-	[2] = L["Vertical"],
+	[1] = "Horizontal",
+	[2] = "Vertical",
 }
 Neuron.BarOrientations = BarOrientations
 
 
-
-
-
-
 ---Constructor: Create a new Neuron BUTTON object (this is the base object for all Neuron button types)
----@param name string @ Name given to the new button frame
+---@param bar BAR @Bar Object this button will be a child of
+---@param buttonID number @Button ID that this button will be assigned
+---@param defaults table @Default options table to be loaded onto the given button
 ---@return STATUSBTN @ A newly created STATUSBTN object
-function STATUSBTN:new(name)
-	local object = CreateFrame("Button", name, UIParent, "NeuronStatusBarTemplate")
-	setmetatable(object, {__index = STATUSBTN})
-	return object
-end
+function STATUSBTN.new(bar, buttonID, defaults)
 
+	--call the parent object constructor with the provided information specific to this button type
+	local newButton = Neuron.BUTTON.new(bar, buttonID, STATUSBTN, "StatusBar", "StatusBar", "NeuronStatusBarTemplate")
 
+	if (defaults) then
+		newButton:SetDefaults(defaults)
+	end
 
-function STATUSBTN:SetSkinned()
+	if Neuron.NeuronGUI then
+		Neuron.NeuronGUI:SB_CreateEditFrame(newButton)
+	end
+
+	return newButton
 end
 
 ----------------------------------
@@ -328,13 +331,31 @@ function STATUSBTN:xpDropDown_Initialize() -- initialize the dropdown menu for c
 	UIDropDownMenu_AddButton(info)
 	wipe(info)
 
-	if(C_AzeriteItem.FindActiveAzeriteItem()) then --only show this button if they player has the Heart of Azeroth
+	if not Neuron.isWoWClassic then
+
+		if(C_AzeriteItem.FindActiveAzeriteItem()) then --only show this button if they player has the Heart of Azeroth
+			info.arg1 = self
+			info.arg2 = "azerite_xp"
+			info.text = L["Track Azerite Power"]
+			info.func = function(dropdown, self, newXPType) self:switchCurXPType(newXPType) end
+
+			if (self.sb.curXPType == "azerite_xp") then
+				info.checked = 1
+			else
+				info.checked = nil
+			end
+
+			UIDropDownMenu_AddButton(info)
+			wipe(info)
+		end
+
+
 		info.arg1 = self
-		info.arg2 = "azerite_xp"
-		info.text = L["Track Azerite Power"]
+		info.arg2 = "honor_points"
+		info.text = L["Track Honor Points"]
 		info.func = function(dropdown, self, newXPType) self:switchCurXPType(newXPType) end
 
-		if (self.sb.curXPType == "azerite_xp") then
+		if (self.sb.curXPType == "honor_points") then
 			info.checked = 1
 		else
 			info.checked = nil
@@ -342,22 +363,8 @@ function STATUSBTN:xpDropDown_Initialize() -- initialize the dropdown menu for c
 
 		UIDropDownMenu_AddButton(info)
 		wipe(info)
+
 	end
-
-
-	info.arg1 = self
-	info.arg2 = "honor_points"
-	info.text = L["Track Honor Points"]
-	info.func = function(dropdown, self, newXPType) self:switchCurXPType(newXPType) end
-
-	if (self.sb.curXPType == "honor_points") then
-		info.checked = 1
-	else
-		info.checked = nil
-	end
-
-	UIDropDownMenu_AddButton(info)
-	wipe(info)
 
 end
 
@@ -412,7 +419,7 @@ function STATUSBTN:repstrings_Update(line)
 
 		for i=1, GetNumFactions() do
 			local name, _, ID, min, max, value, _, _, isHeader, _, hasRep, _, _, factionID = GetFactionInfo(i)
-			local fID, fRep, fMaxRep, fName, fText, fTexture, fTextLevel, fThreshold, nextFThreshold = GetFriendshipReputation(factionID)
+
 			local colors, standing
 			local hasFriendStatus = false
 
@@ -421,25 +428,36 @@ function STATUSBTN:repstrings_Update(line)
 			end
 
 			if ((not isHeader or hasRep) and not IsFactionInactive(i)) then
-				if (fID and not BrawlerGuildFactions[fID]) then
-					colors = BarRepColors[ID+2]; standing = fTextLevel
-					hasFriendStatus = true
-				elseif (fID and BrawlerGuildFactions[fID]) then
-					colors = BarRepColors[ID]; standing = fTextLevel
-					hasFriendStatus = true
-				else
-					colors = BarRepColors[ID]; standing = (colors.l):gsub("^%a%p", "")
+
+				local fID, fTextLevel
+				if not Neuron.isWoWClassic then
+					fID, _, _, _, _, _, fTextLevel, _, _ = GetFriendshipReputation(factionID)
 				end
 
-				if (factionID and C_Reputation.IsFactionParagon(factionID)) then
-					local para_value, para_max, _, hasRewardPending = C_Reputation.GetFactionParagonInfo(factionID);
-					value = para_value % para_max;
-					max = para_max
-					if hasRewardPending then
-						name = name.." ("..L["Reward"]:upper()..")"
+				if (fID and not BrawlerGuildFactions[fID]) then
+					colors = BarRepColors[ID+2]
+					standing = fTextLevel
+					hasFriendStatus = true
+				elseif (fID and BrawlerGuildFactions[fID]) then
+					colors = BarRepColors[ID]
+					standing = fTextLevel
+					hasFriendStatus = true
+				else
+					colors = BarRepColors[ID];
+					standing = (colors.l):gsub("^%a%p", "")
+				end
+
+				if not Neuron.isWoWClassic then
+					if (factionID and C_Reputation.IsFactionParagon(factionID)) then
+						local para_value, para_max, _, hasRewardPending = C_Reputation.GetFactionParagonInfo(factionID);
+						value = para_value % para_max;
+						max = para_max
+						if hasRewardPending then
+							name = name.." ("..L["Reward"]:upper()..")"
+						end
+						min = 0
+						colors = BarRepColors[11]
 					end
-					min = 0
-					colors = BarRepColors[11]
 				end
 
 				local repData = self:SetRepWatch(name, hasFriendStatus, standing, min, max, value, colors)
@@ -764,7 +782,13 @@ function STATUSBTN:CastBar_OnEvent(event, ...)
 
 	if (event == "UNIT_SPELLCAST_START") then
 
-		local name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = UnitCastingInfo(unit)
+		local name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible
+
+		if not Neuron.isWoWClassic then
+			name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = UnitCastingInfo(unit)
+		else
+			name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = CastingInfo() --classic doesn't have UnitCastingInfo()
+		end
 
 		if (not name) then
 			self:CastBar_Reset()
@@ -878,7 +902,13 @@ function STATUSBTN:CastBar_OnEvent(event, ...)
 
 		if (self.sb:IsShown()) then
 
-			local name, text, texture, startTime, endTime, isTradeSkill = UnitCastingInfo(unit)
+			local name, text, texture, startTime, endTime, isTradeSkill
+
+			if not Neuron.isWoWClassic then
+				name, text, texture, startTime, endTime, isTradeSkill = UnitCastingInfo(unit)
+			else
+				name, text, texture, startTime, endTime, isTradeSkill = CastingInfo() --Classic doesn't have UnitCastingInfo()
+			end
 
 			if (not name) then
 				self:CastBar_Reset()
@@ -1340,7 +1370,7 @@ end
 
 
 
-function STATUSBTN:UpdateTexture(command, gui, query, skipupdate)
+function STATUSBTN:UpdateBarFill(command, gui, query, skipupdate)
 
 	if (query) then
 		return BarTextures[self.config.texture][3]
@@ -1390,52 +1420,59 @@ end
 
 
 
-function STATUSBTN:UpdateOrientation(command, gui, query, skipupdate)
+function STATUSBTN:UpdateOrientation(orientationIndex, gui, query, skipupdate)
 
 	if (query) then
 		return BarOrientations[self.config.orientation]
 	end
 
-	local index = tonumber(command)
+	orientationIndex = tonumber(orientationIndex)
 
-	if (index) then
+	if (orientationIndex) then
 
-		self.config.orientation = index
-		self.sb.orientation = self.config.orientation
+		--only update if we're changing, not staying the same
+		if self.config.orientation ~= orientationIndex then
 
-		self.sb:SetOrientation(BarOrientations[self.config.orientation]:upper())
-		self.fbframe.feedback:SetOrientation(BarOrientations[self.config.orientation]:upper())
+			self.config.orientation = orientationIndex
+			self.sb.orientation = self.config.orientation
 
-		if (self.config.orientation == 2) then
-			self.sb.cText:SetAlpha(0)
-			self.sb.lText:SetAlpha(0)
-			self.sb.rText:SetAlpha(0)
-			self.sb.mText:SetAlpha(0)
-		else
-			self.sb.cText:SetAlpha(1)
-			self.sb.lText:SetAlpha(1)
-			self.sb.rText:SetAlpha(1)
-			self.sb.mText:SetAlpha(1)
-		end
+			self.sb:SetOrientation(BarOrientations[self.config.orientation]:lower())
+			self.fbframe.feedback:SetOrientation(BarOrientations[self.config.orientation]:lower())
 
-		local width, height = self.config.width,  self.config.height
+			if (self.config.orientation == 2) then
+				self.sb.cText:SetAlpha(0)
+				self.sb.lText:SetAlpha(0)
+				self.sb.rText:SetAlpha(0)
+				self.sb.mText:SetAlpha(0)
+			else
+				self.sb.cText:SetAlpha(1)
+				self.sb.lText:SetAlpha(1)
+				self.sb.rText:SetAlpha(1)
+				self.sb.mText:SetAlpha(1)
+			end
 
-		self.config.width = height
-		self.config.height = width
 
-		self:SetWidth(self.config.width)
+			local newWidth = self.config.height
+			local newHeight = self.config.width
 
-		self:SetHeight(self.config.height)
+			self.config.height = newHeight
+			self.config.width = newWidth
 
-		self.bar:SetObjectLoc()
+			self:SetWidth(self.config.width)
 
-		self.bar:SetPerimeter()
+			self:SetHeight(self.config.height)
 
-		self.bar:SetSize()
+			self.bar:SetObjectLoc()
 
-		if (not skipupdate) then
-			Neuron.NeuronGUI:Status_UpdateEditor()
-			self.bar:Update()
+			self.bar:SetPerimeter()
+
+			self.bar:SetSize()
+
+			if (not skipupdate) then
+				Neuron.NeuronGUI:Status_UpdateEditor()
+				self.bar:Update()
+			end
+
 		end
 	end
 end
@@ -1732,8 +1769,8 @@ function STATUSBTN:SetData(bar)
 	self.sb.failColor = { (";"):split(self.config.failColor) }
 
 	self.sb.orientation = self.config.orientation
-	self.sb:SetOrientation(BarOrientations[self.config.orientation]:upper())
-	self.fbframe.feedback:SetOrientation(BarOrientations[self.config.orientation]:upper())
+	self.sb:SetOrientation(BarOrientations[self.config.orientation]:lower())
+	self.fbframe.feedback:SetOrientation(BarOrientations[self.config.orientation]:lower())
 
 	if (self.config.orientation == 2) then
 		self.sb.cText:SetAlpha(0)
@@ -1771,6 +1808,7 @@ end
 
 function STATUSBTN:SetObjectVisibility(show)
 
+
 	if (show) then
 
 		self.editmode = true
@@ -1784,16 +1822,6 @@ function STATUSBTN:SetObjectVisibility(show)
 	end
 
 end
-
-
-
-
-function STATUSBTN:LoadAux()
-
-	Neuron.NeuronGUI:SB_CreateEditFrame(self)
-
-end
-
 
 
 
@@ -1824,12 +1852,8 @@ function STATUSBTN:StatusBar_Reset()
 end
 
 
-function STATUSBTN:SetAux()
-	--empty--
-end
 
-
-function STATUSBTN:SetType(save)
+function STATUSBTN:SetType()
 
 	if (InCombatLockdown()) then
 		return
@@ -1848,8 +1872,11 @@ function STATUSBTN:SetType(save)
 		self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", "CastBar_OnEvent")
 		self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", "CastBar_OnEvent")
 		self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", "CastBar_OnEvent")
-		self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTIBLE", "CastBar_OnEvent")
-		self:RegisterEvent("UNIT_SPELLCAST_NOT_INTERRUPTIBLE", "CastBar_OnEvent")
+
+		if not Neuron.isWoWClassic then
+			self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTIBLE", "CastBar_OnEvent")
+			self:RegisterEvent("UNIT_SPELLCAST_NOT_INTERRUPTIBLE", "CastBar_OnEvent")
+		end
 
 		self.sb.unit = BarUnits[self.data.unit]
 		self.sb.showIcon = self.config.showIcon
@@ -1879,11 +1906,15 @@ function STATUSBTN:SetType(save)
 		self:SetHitRectInsets(0, 0, 0, 0)
 
 		self:RegisterEvent("PLAYER_XP_UPDATE", "XPBar_OnEvent")
-		self:RegisterEvent("HONOR_XP_UPDATE", "XPBar_OnEvent")
+
 		self:RegisterEvent("UPDATE_EXHAUSTION", "XPBar_OnEvent")
 		self:RegisterEvent("PLAYER_ENTERING_WORLD", "XPBar_OnEvent")
-		self:RegisterEvent("AZERITE_ITEM_EXPERIENCE_CHANGED", "XPBar_OnEvent")
 		self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", "XPBar_OnEvent")
+
+		if not Neuron.isWoWClassic then
+			self:RegisterEvent("HONOR_XP_UPDATE", "XPBar_OnEvent")
+			self:RegisterEvent("AZERITE_ITEM_EXPERIENCE_CHANGED", "XPBar_OnEvent")
+		end
 
 		self.sb:Show()
 

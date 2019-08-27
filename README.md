@@ -1,6 +1,6 @@
 # Neuron
 
-Neuron is a full featured action Bar addon for [World of Warcraft: Battle for Azeroth](https://worldofwarcraft.com/en-us/), updated for Patch 8.1
+Neuron is a full featured action Bar addon for [World of Warcraft: Battle for Azeroth](https://worldofwarcraft.com/en-us/), updated for Patch 8.1.5
 
 ## Manual Install:
 I do not recommend downloading this addon directly from Github, as there are CurseForge packaging modifications made the the addon upon release. These modifications include updating all included libraries to their latest release versions and pulling in all of the crowd sourced localizations. I have made an effort to pull in periodic samplings of these, but what you will find in the packaged versions on CurseForge or WowInterface will be much more up to date.
@@ -34,44 +34,9 @@ Neuron inherits all theming courtesy of the **[Masque](https://mods.curse.com/ad
 ## Graphical Editor:
 Neuron contains a graphical bar editor that allows for nearly endless customization to bar shape, size, orientation, and much more! Further, Neuron has neither the limitations on max number of bars nor on the max number of buttons per bar, as you might find in addons such as Bartender4 or Dominoes. 
 
-If the command line is your thing, all of the options found in the graphical bar editor can also be set using the below command structure.
-
-
-## Commands:
-Type /neuron alone to display a list of available commands, which are:
-
-* **menu:** Toggle the main menu
-* **create:** Create a blank bar
-* **delete:** Delete the currently selected bar
-* **config:** Toggle configuration mode for all bars
-* **add:** Adds buttons to the currently selected bar (add or add #)
-* **remove:** Removes buttons from the currently selected bar (remove or remove #)
-* **edit:** Toggle edit mode for all buttons
-* **bind:** Toggle binding mode for all buttons
-* **scale:** Scale a bar to the desired size.
-* **snapto:** Toggle SnapTo for current bar
-* **autohide:** Toggle AutoHide for current bar
-* **shape:** Change current bar's shape
-* **name:** Change current bar's name
-* **strata:** Change current bar's frame strata
-* **alpha:** Change current bar's alpha (transparency)
-* **alphaup:** Set current bar's conditions to 'alpha up'
-* **arcstart:** Set current bar's starting arc location (in degrees)
-* **arclen:** Set current bar's arc length (in degrees)
-* **columns:** Set the number of columns for the current bar
-* **padh:** Set current bar's horizontal padding
-* **padv:** Set current bar's vertical padding
-* **padhv:** Adjust both horizontal and vertical padding of the current bar incrementally
-* **showgrid:** Toggle the current bar's showgrid flag
-* **x:** Change current bar's horizontal axis position
-* **y:** Change current bar's vertical axis position
-* **state:** Toggle states for the current bar (/neuron state &lt;state&gt;). Type /neuron statelist for vaild states
-* **statelist:** Print a list of valid states
-* **load:** Load a profile
-* **lock:** Lock buttons
 
 ## Development:
-Neuron development is all done using the **[Intellij IDEA](https://www.jetbrains.com/idea/download/#section=windows)** Community Edition IDE and with the assistance of the fantastic **[EmmyLua](https://plugins.jetbrains.com/plugin/9768-emmylua)** plugin. Detailed instructions on how I set up my development environment can be found **[here](https://github.com/Ellypse/IntelliJ-IDEA-Lua-IDE-WoW-API/wiki)**. Likewise, in game I make use of the addons **[BugGrabber](https://www.curseforge.com/wow/addons/bug-grabber)**, **[BugSack](https://www.curseforge.com/wow/addons/bugsack)**, and **[ViragDevTool](https://www.curseforge.com/wow/addons/varrendevtool)**, and in game tools such as **"/eventtrace"**
+Neuron development is all done using the **[Intellij IDEA](https://www.jetbrains.com/idea/download/#section=windows)** Community Edition IDE and with the assistance of the fantastic **[EmmyLua](https://plugins.jetbrains.com/plugin/9768-emmylua)** plugin. Detailed instructions on how I set up my development environment can be found **[here](https://github.com/Ellypse/IntelliJ-IDEA-Lua-IDE-WoW-API/wiki)**. Likewise, in game I make use of the addons **[BugGrabber](https://www.curseforge.com/wow/addons/bug-grabber)**, **[BugSack](https://www.curseforge.com/wow/addons/bugsack)**, and **[ViragDevTool](https://www.curseforge.com/wow/addons/varrendevtool)**, and in game tools such as **"/eventtrace"** and **"/framestack"**
 
 Development of Neuron requires an understanding of **[Lua syntax](https://www.lua.org/manual/5.3/manual.html)**, the **[WoW API](https://wow.gamepedia.com/World_of_Warcraft_API)**, and a working understanding of Git/GitHub. If you want to help with Neuron's development, I suggest: 
 1. Forking the project on [GitHub](https://github.com/brittyazel/Neuron) (some people use [GitHub Desktop](https://desktop.github.com/), but I personally use [GitKraken](https://www.gitkraken.com/))
@@ -86,10 +51,11 @@ A good place to start coding is by looking through the **[issue tracker](https:/
 
 ## Credits:
 Translators:
-* German: Aszkarath
-* French: Cinedelle
+* German: Aszkarath, Wolfsmutter
+* French: Cinedelle, El_Mapache
 * Brazilian Portuguese: Alanbre20
 * Russian: Hubbotu
+* Simplified Chinese: Acey7, Cestmysndee
 
 **Disclaimer:**
 

@@ -24,78 +24,85 @@ local EXITBTN = setmetatable({}, { __index = Neuron.BUTTON })
 Neuron.EXITBTN = EXITBTN
 
 
-
-local SKIN = LibStub("Masque", true)
-local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
-
-
-
+----------------------------------------------------------
 
 ---Constructor: Create a new Neuron BUTTON object (this is the base object for all Neuron button types)
----@param name string @ Name given to the new button frame
+---@param bar BAR @Bar Object this button will be a child of
+---@param buttonID number @Button ID that this button will be assigned
+---@param defaults table @Default options table to be loaded onto the given button
 ---@return EXITBTN @ A newly created EXITBTN object
-function EXITBTN:new(name)
-	local object = CreateFrame("CheckButton", name, UIParent, "NeuronActionButtonTemplate")
-	setmetatable(object, {__index = EXITBTN})
-	return object
-end
+function EXITBTN.new(bar, buttonID, defaults)
 
+	--call the parent object constructor with the provided information specific to this button type
+	local newButton = Neuron.BUTTON.new(bar, buttonID, EXITBTN, "ExitBar", "VehicleExitButton", "NeuronActionButtonTemplate")
 
-function EXITBTN:SetObjectVisibility(show)
-
-	if CanExitVehicle() or show then --set alpha instead of :Show or :Hide, to avoid taint and to allow the button to appear in combat
-		self:SetAlpha(1)
-		self:SetExitButtonIcon()
-	elseif not Neuron.buttonEditMode and not Neuron.barEditMode and not Neuron.bindingMode then
-		self:SetAlpha(0)
+	if (defaults) then
+		newButton:SetDefaults(defaults)
 	end
 
+	return newButton
 end
 
-function EXITBTN:SetExitButtonIcon()
 
-	local texture
+----------------------------------------------------------
 
-	if UnitOnTaxi("player") then
-		texture = Neuron.SPECIALACTIONS.taxi
-	else
-		texture = Neuron.SPECIALACTIONS.vehicle
-	end
-
-	self.iconframeicon:SetTexture(texture)
-end
-
-function EXITBTN:SetType(save)
+function EXITBTN:SetType()
 
 	self:RegisterEvent("UPDATE_BONUS_ACTIONBAR", "OnEvent")
 	self:RegisterEvent("UPDATE_VEHICLE_ACTIONBAR", "OnEvent")
-	self:RegisterEvent("UPDATE_POSSESS_BAR", "OnEvent");
 	self:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR", "OnEvent");
 	self:RegisterEvent("UNIT_ENTERED_VEHICLE", "OnEvent")
 	self:RegisterEvent("UNIT_EXITED_VEHICLE", "OnEvent")
 	self:RegisterEvent("VEHICLE_UPDATE", "OnEvent")
 
+
 	self:SetScript("OnClick", function(self) self:OnClick() end)
 	self:SetScript("OnEnter", function(self) self:OnEnter() end)
 	self:SetScript("OnLeave", GameTooltip_Hide)
 
-	local objects = Neuron:GetParentKeys(self)
+	self:SetSkinned()
 
-	for k,v in pairs(objects) do
-		local name = (v):gsub(self:GetName(), "")
-		self[name:lower()] = _G[v]
-	end
-
-	self:SetExitButtonIcon()
-
-	self:SetObjectVisibility()
 end
 
 
 function EXITBTN:OnEvent(event, ...)
-
+	self:SetButtonTex()
 	self:SetObjectVisibility()
+end
 
+
+function EXITBTN:SetObjectVisibility(show)
+
+	if CanExitVehicle() or UnitOnTaxi("player") or show or Neuron.buttonEditMode or Neuron.barEditMode or Neuron.bindingMode then --set alpha instead of :Show or :Hide, to avoid taint and to allow the button to appear in combat
+		self:SetAlpha(1)
+	else
+		self:SetAlpha(0)
+	end
+
+end
+
+function EXITBTN:SetButtonTex()
+
+	self.iconframeicon:SetTexture("Interface\\AddOns\\Neuron\\Images\\new_vehicle_exit")
+
+	if (not self:GetSkinned()) then
+		if (self:HasAction()) then
+			self:SetNormalTexture(self.hasAction or "")
+			self:GetNormalTexture():SetVertexColor(1,1,1,1)
+		else
+			self:SetNormalTexture(self.noAction or "")
+			self:GetNormalTexture():SetVertexColor(1,1,1,0.5)
+		end
+	end
+end
+
+
+function EXITBTN:OnClick()
+	if UnitOnTaxi("player")then
+		TaxiRequestEarlyLanding()
+	else
+		VehicleExit()
+	end
 end
 
 
@@ -111,13 +118,5 @@ function EXITBTN:OnEnter()
 		GameTooltip:ClearLines()
 		GameTooltip:SetText(CANCEL);
 		GameTooltip:Show();
-	end
-end
-
-function EXITBTN:OnClick()
-	if ( UnitOnTaxi("player") ) then
-		TaxiRequestEarlyLanding()
-	else
-		VehicleExit()
 	end
 end
