@@ -153,7 +153,9 @@ function BUTTON:SetCooldownTimer(start, duration, enable, showCountdownTimer, mo
 				CooldownFrame_Set(self.iconframecooldown, start, duration, enable, true, modrate) --set clock style cooldown animation for ability cooldown. Show Draw Edge.
 			end
 		else --sets GCD cooldowns
-			CooldownFrame_Set(self.iconframecooldown, start, duration, enable, false, modrate) --don't show the Draw Edge for the GCD
+			if self:GetAlpha() ~= 0 then
+				CooldownFrame_Set(self.iconframecooldown, start, duration, enable, false, modrate) --don't show the Draw Edge for the GCD
+			end
 		end
 
 		-- Clear the charge cooldown frame if it is still going from a different ability in a different state (i.e. frenzied regen in the same spot as Swiftmend)
@@ -510,35 +512,32 @@ end
 function BUTTON:SetSkinned(flyout)
 
 	if (SKIN) then
-
 		local bar = self.bar
 
 		if (bar) then
 			local btnData = {
 				Normal = self.normaltexture,
 				Icon = self.iconframeicon,
-				Cooldown = self.iconframecooldown,
 				HotKey = self.hotkey,
 				Count = self.count,
 				Name = self.name,
 				Border = self.border,
-				AutoCast = self.shine,
+				Shine = self.shine,
+				Cooldown = self.iconframecooldown,
 				AutoCastable = self.autocastable,
 				Checked = self.checkedtexture,
 				Pushed = self:GetPushedTexture(),
 				Disabled = self:GetDisabledTexture(),
 				Highlight = self.highlighttexture,
-
 			}
 
 			if (flyout) then
-				SKIN:Group("Neuron", self.anchor.bar.data.name):AddButton(self, btnData)
+				SKIN:Group("Neuron", self.anchor.bar.data.name):AddButton(self, btnData, "Action")
 			else
-				SKIN:Group("Neuron", bar.data.name):AddButton(self, btnData)
+				SKIN:Group("Neuron", bar.data.name):AddButton(self, btnData, "Action")
 			end
 
 			self.skinned = true
-
 		end
 	end
 end
