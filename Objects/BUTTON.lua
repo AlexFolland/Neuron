@@ -144,6 +144,10 @@ end
 
 function BUTTON:SetCooldownTimer(start, duration, enable, showCountdownTimer, modrate, color1, color2, showCountdownAlpha, charges, maxCharges)
 
+	if not self.isShown then --if the button isn't shown, don't do set any cooldowns
+		return
+	end
+
 	if start and start > 0 and duration > 0 and enable > 0 then
 
 		if duration > 2 then --sets non GCD cooldowns
@@ -153,9 +157,7 @@ function BUTTON:SetCooldownTimer(start, duration, enable, showCountdownTimer, mo
 				CooldownFrame_Set(self.iconframecooldown, start, duration, enable, true, modrate) --set clock style cooldown animation for ability cooldown. Show Draw Edge.
 			end
 		else --sets GCD cooldowns
-			if self:GetAlpha() ~= 0 then
-				CooldownFrame_Set(self.iconframecooldown, start, duration, enable, false, modrate) --don't show the Draw Edge for the GCD
-			end
+			CooldownFrame_Set(self.iconframecooldown, start, duration, enable, false, modrate) --don't show the Draw Edge for the GCD
 		end
 
 		-- Clear the charge cooldown frame if it is still going from a different ability in a different state (i.e. frenzied regen in the same spot as Swiftmend)
@@ -210,7 +212,13 @@ function BUTTON:SetCooldownTimer(start, duration, enable, showCountdownTimer, mo
 			--Cancel Timers as they're unnecessary
 			self:CancelTimer(self.iconframecooldown.cooldownUpdateTimer)
 			self.iconframecooldown.timer:SetText("")
-			self.iconframecooldown.button:SetAlpha(1)
+
+			if self.data.alpha then
+				self:SetAlpha(self.data.alpha) --try to restore the original alpha
+			else
+				self:SetAlpha(1)
+			end
+
 			self.iconframecooldown.showCountdownTimer = false
 			self.iconframecooldown.showCountdownAlpha = false
 		end
@@ -219,7 +227,11 @@ function BUTTON:SetCooldownTimer(start, duration, enable, showCountdownTimer, mo
 		self:CancelTimer(self.iconframecooldown.cooldownUpdateTimer)
 		self.iconframecooldown.timer:SetText("")
 
-		self.iconframecooldown.button:SetAlpha(1)
+		if self.data.alpha then
+			self:SetAlpha(self.data.alpha) --try to restore the original alpha
+		else
+			self:SetAlpha(1)
+		end
 
 		self.iconframecooldown.showCountdownTimer = false
 		self.iconframecooldown.showCountdownAlpha = false
@@ -266,29 +278,29 @@ function BUTTON:CooldownCounterUpdate()
 			if (coolDown >= 86400) then --append a "d" if the timer is longer than 1 day
 				formatted = string.format( "%.0f", coolDown/86400)
 				formatted = formatted.."d"
-				size = self.iconframecooldown.button:GetWidth()*0.3
+				size = self:GetWidth()*0.3
 				self.iconframecooldown.timer:SetTextColor(normalcolor[1], normalcolor[2], normalcolor[3])
 
 			elseif (coolDown >= 3600) then --append a "h" if the timer is longer than 1 hour
 				formatted = string.format( "%.0f",coolDown/3600)
 				formatted = formatted.."h"
-				size = self.iconframecooldown.button:GetWidth()*0.3
+				size = self:GetWidth()*0.3
 				self.iconframecooldown.timer:SetTextColor(normalcolor[1], normalcolor[2], normalcolor[3])
 
 			elseif (coolDown >= 60) then --append a "m" if the timer is longer than 1 min
 				formatted = string.format( "%.0f",coolDown/60)
 				formatted = formatted.."m"
-				size = self.iconframecooldown.button:GetWidth()*0.3
+				size = self:GetWidth()*0.3
 				self.iconframecooldown.timer:SetTextColor(normalcolor[1], normalcolor[2], normalcolor[3])
 
 			elseif (coolDown >=6) then --this is the 'normal' countdown text state
 				formatted = string.format( "%.0f",coolDown)
-				size = self.iconframecooldown.button:GetWidth()*0.45
+				size = self:GetWidth()*0.45
 				self.iconframecooldown.timer:SetTextColor(normalcolor[1], normalcolor[2], normalcolor[3])
 
 			elseif (coolDown < 6) then --this is the countdown text state but with the text larger and set to the expire color (usually red)
 				formatted = string.format( "%.0f",coolDown)
-				size = self.iconframecooldown.button:GetWidth()*0.6
+				size = self:GetWidth()*0.6
 				if (expirecolor) then
 					self.iconframecooldown.timer:SetTextColor(expirecolor[1], expirecolor[2], expirecolor[3])
 					expirecolor = nil
@@ -311,12 +323,20 @@ function BUTTON:CooldownCounterUpdate()
 	if self.iconframecooldown.showCountdownAlpha and self.iconframecooldown.charges == 0 then --check if flag is set and if charges are nil or zero, otherwise skip
 
 		if coolDown > 0 then
-			self.iconframecooldown.button:SetAlpha(self.iconframecooldown.button.cdAlpha)
+			self:SetAlpha(self.cdAlpha)
 		else
-			self.iconframecooldown.button:SetAlpha(1)
+			if self.data.alpha then
+				self:SetAlpha(self.data.alpha) --try to restore the original alpha
+			else
+				self:SetAlpha(1)
+			end
 		end
 	else
-		self.iconframecooldown.button:SetAlpha(1) --restore alpha to 1 in case it somehow was stuck at a lower value
+		if self.data.alpha then
+			self:SetAlpha(self.data.alpha) --try to restore the original alpha
+		else
+			self:SetAlpha(1)
+		end
 	end
 
 end
@@ -477,32 +497,56 @@ function BUTTON:LoadData()
 end
 
 
-function BUTTON:SetObjectVisibility(show)
- --empty
+function BUTTON:SetObjectVisibility()
+
+	if self.bar.class ~= "ActionBar" then --TODO: I'd like to not have separate logic for ActionBars in the future
+		if self.isShown then
+			if self.data.alpha then
+				self:SetAlpha(self.data.alpha) --try to restore alpha value instead of default to 1
+			else
+				self:SetAlpha(1)
+			end
+		else
+			self:SetAlpha(0)
+		end
+	else
+
+		if InCombatLockdown() then
+			return
+		end
+
+		self:SetAttribute("showGrid", self.showGrid) --this is important because in our state switching code, we can't querry self.showGrid directly
+		self:SetAttribute("isshown", show)
+
+		if self.isShown then
+			self:Show()
+		else
+			self:Hide()
+		end
+
+	end
 end
 
 
 
 function BUTTON:SetDefaults(defaults)
-	if defaults then
-		for k,v in pairs(defaults) do
-
-			if defaults.config then
-				for k2, v2 in pairs(defaults.config) do
-					self.config[k2] = v2
-				end
-			end
-
-			if defaults.keys then
-				for k2, v2 in pairs(defaults.keys) do
-					self.keys[k2] = v2
-				end
-			end
-
-		end
-
-
+	if not defaults then
+		return
 	end
+
+	if defaults.config then
+		for k, v in pairs(defaults.config) do
+			self.DB.config[k] = v
+		end
+	end
+
+	if defaults.keys then
+		for k, v in pairs(defaults.keys) do
+			self.DB.keys[k] = v
+		end
+	end
+
+
 end
 
 function BUTTON:SetType()
@@ -652,10 +696,9 @@ function BUTTON:SetSpellCooldown(spell)
 
 	if (charges and maxCharges and maxCharges > 0 and charges < maxCharges) then
 		self:SetCooldownTimer(chStart, chDuration, enable, self.cdText, chargemodrate, self.cdcolor1, self.cdcolor2, self.cdAlpha, charges, maxCharges) --only evoke charge cooldown (outer border) if charges are present and less than maxCharges (this is the case with the GCD)
+	else
+		self:SetCooldownTimer(start, duration, enable, self.cdText, modrate, self.cdcolor1, self.cdcolor2, self.cdAlpha, charges, maxCharges) --call standard cooldown, handles both abilty cooldowns and GCD
 	end
-
-	self:SetCooldownTimer(start, duration, enable, self.cdText, modrate, self.cdcolor1, self.cdcolor2, self.cdAlpha, charges, maxCharges) --call standard cooldown, handles both abilty cooldowns and GCD
-
 end
 
 
@@ -764,7 +807,7 @@ function BUTTON:AuraCounterUpdate()
 
 			formatted = string.format( "%.0f",coolDown)
 
-			size = self.iconframecooldown.button:GetWidth()*0.45
+			size = self:GetWidth()*0.45
 
 			if (self.iconframecooldown.auraType == "buff") then
 				self.border:SetVertexColor(self.auracolor1[1], self.auracolor1[2], self.auracolor1[3], 1.0)
