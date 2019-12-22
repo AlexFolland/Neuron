@@ -13,11 +13,11 @@
 --GNU General Public License for more details.
 --
 --You should have received a copy of the GNU General Public License
---along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+--along with this add-on.  If not, see <https://www.gnu.org/licenses/>.
 --
 --Copyright for portions of Neuron are held by Connor Chenoweth,
 --a.k.a Maul, 2014 as part of his original project, Ion. All other
---copyrights for Neuron are held by Britt Yazel, 2017-2018.
+--copyrights for Neuron are held by Britt Yazel, 2017-2019.
 
 local addonName = ...
 
@@ -114,6 +114,15 @@ function NeuronGUI:OnInitialize()
 	LibStub("AceConfigRegistry-3.0"):ValidateOptionsTable(NeuronGUI.interfaceOptions, addonName)
 	LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName, NeuronGUI.interfaceOptions)
 	NeuronGUI.interfaceOptions.args.profile = LibStub("AceDBOptions-3.0"):GetOptionsTable(Neuron.db)
+
+	-- Per spec profiles
+	if not Neuron.isWoWClassic then
+		local LibDualSpec = LibStub('LibDualSpec-1.0')
+		LibDualSpec:EnhanceDatabase(Neuron.db, addonName) --enhance the database object with per spec profile features
+		LibDualSpec:EnhanceOptions(NeuronGUI.interfaceOptions.args.profile, Neuron.db) -- enhance the profiles config panel with per spec profile features
+	end
+
+
 	LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName, addonName)
 
 
