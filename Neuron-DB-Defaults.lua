@@ -67,7 +67,6 @@ local genericButtonData = {
 
 local genericSpecData = {
 	actionID = false,
-
 	macro_Text = "",
 	macro_Icon = false,
 	macro_Name = "",
@@ -106,9 +105,6 @@ local genericStatusBtnData= {
 	tColor = "1;1;1;1",
 
 	bordercolor = "1;1;1;1",
-
-	norestColor = "1;0;1;1",
-	restColor = "0;0;1;1",
 
 	castColor = "1;0.7;0;1",
 	channelColor = "0;1;0;1",
@@ -200,7 +196,7 @@ local genericBarData = {
 	tooltipsCombat = false,
 
 	bindText = true,
-	macroText = true,
+	macroText = false,
 	countText = true,
 	rangeInd = true,
 
@@ -294,7 +290,6 @@ NeuronDefaults = {
 
 ------------------------------------------------------------------------------
 
-
 NeuronDefaults.profile.ActionBar['*'].buttons = {
 	['*'] = {
 		['config'] = CopyTable(genericButtonData),
@@ -303,6 +298,8 @@ NeuronDefaults.profile.ActionBar['*'].buttons = {
 		[2] = {['**'] = CopyTable(genericSpecData), ['homestate'] = {}},
 		[3] = {['**'] = CopyTable(genericSpecData), ['homestate'] = {}},
 		[4] = {['**'] = CopyTable(genericSpecData), ['homestate'] = {}},
+		--any time a player is without spec, it is not treated as spec 5
+		[5] = {['**'] = CopyTable(genericSpecData), ['homestate'] = {}}, --we need this or we will error out on new character creation
 	}
 }
 

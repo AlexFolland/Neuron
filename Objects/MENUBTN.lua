@@ -98,8 +98,6 @@ function MENUBTN:SetData(bar)
 
 		self.isShown = true
 	end
-
-	self:SetFrameLevel(4)
 end
 
 function MENUBTN:PET_BATTLE_CLOSE()
@@ -110,19 +108,21 @@ end
 ---this overwrites the default MoveMicroButtons and basically just extends it to reposition all the other buttons as well, not just the 1st and 6th.
 ---This is necessary for petbattles, otherwise there's no menubar
 function MENUBTN.ModifiedMoveMicroButtons(anchor, anchorTo, relAnchor, x, y, isStacked)
-
 	blizzMenuButtons[1]:ClearAllPoints();
-	blizzMenuButtons[1]:SetPoint(anchor, anchorTo, relAnchor, x-5, y+4);
+	blizzMenuButtons[1]:SetPoint(anchor, anchorTo, relAnchor, x-3, y-1);
 
 	for i=2,#blizzMenuButtons do
 		blizzMenuButtons[i]:ClearAllPoints();
-		blizzMenuButtons[i]:SetPoint("BOTTOMLEFT", blizzMenuButtons[i-1], "BOTTOMRIGHT", -2,0)
-		if isStacked and i == 6 then
-			blizzMenuButtons[6]:ClearAllPoints();
-			blizzMenuButtons[6]:SetPoint("TOPLEFT", blizzMenuButtons[1], "BOTTOMLEFT", 0,2)
+		blizzMenuButtons[i]:SetPoint("BOTTOMLEFT", blizzMenuButtons[i-1], "BOTTOMRIGHT", -1,0)
+		if isStacked and i == 7 then
+			blizzMenuButtons[7]:ClearAllPoints();
+			blizzMenuButtons[7]:SetPoint("TOPLEFT", blizzMenuButtons[1], "BOTTOMLEFT", 0,2)
 		end
 	end
 
-	MainMenuMicroButton_RepositionAlerts();
 	UpdateMicroButtons();
+end
+
+function MENUBTN:UpdateUsable()
+	--empty--
 end

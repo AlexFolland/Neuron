@@ -891,11 +891,10 @@ function NeuronGUI:countOnMouseWheel(delta)
 	local bar = Neuron.CurrentBar
 
 	if (bar) then
-
 		if (delta > 0) then
-			Neuron.bar:AddObjectsToBar()
+			bar:AddObjectsToBar()
 		else
-			Neuron.bar:RemoveObjectsFromBar()
+			bar:RemoveObjectsFromBar()
 		end
 	end
 end
@@ -921,7 +920,7 @@ function NeuronGUI:BarEditor_OnLoad(frame)
 
 			if (tab == cTab) then
 
-				tab:SetChecked(1)
+				tab:SetChecked(true)
 
 				if (MouseIsOver(cTab)) then
 					PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
@@ -964,7 +963,7 @@ function NeuronGUI:BarEditor_OnLoad(frame)
 	f:SetPoint("RIGHT", frame.tab2, "LEFT", -5, 0)
 	f:SetScript("OnClick", function(self) TabsOnClick(self) end)
 	f:SetFrameLevel(frame:GetFrameLevel()+1)
-	f:SetChecked(1)
+	f:SetChecked(true)
 	f.text:SetText(L["General Options"])
 	frame.tab1 = f; frame.tabs[f] = frame.baropt
 
@@ -981,7 +980,7 @@ function NeuronGUI:BarEditor_OnLoad(frame)
 
 	NeuronGUI:SubFrameBlackBackdrop_OnLoad(f)
 
-	f = CreateFrame("Frame", nil, frame)
+	f = CreateFrame("Frame", nil, frame, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetWidth(250)
 	f:SetHeight(30)
 	f:SetPoint("BOTTOM", 0, 10)
@@ -995,7 +994,7 @@ function NeuronGUI:BarEditor_OnLoad(frame)
 	text:SetText("Test Object Count: 12")
 	frame.count.text = text
 
-	f = CreateFrame("Button", nil, frame.count)
+	f = CreateFrame("Button", nil, frame.count, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetWidth(32)
 	f:SetHeight(40)
 	f:SetPoint("LEFT", text, "RIGHT", 10, -1)
@@ -1004,7 +1003,7 @@ function NeuronGUI:BarEditor_OnLoad(frame)
 	f:SetHighlightTexture("Interface\\AddOns\\Neuron\\Images\\AdjustOptionRight-Highlight")
 	f:SetScript("OnClick", function() if (Neuron.CurrentBar) then Neuron.CurrentBar:AddObjectsToBar() end end)
 
-	f = CreateFrame("Button", nil, frame.count)
+	f = CreateFrame("Button", nil, frame.count, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetWidth(32)
 	f:SetHeight(40)
 	f:SetPoint("RIGHT", text, "LEFT", -10, -1)
@@ -1176,7 +1175,7 @@ function NeuronGUI:BarListScrollFrameUpdate(frame, tableList, alt)
 			text = data[count]
 
 			if (tableList[text] == Neuron.CurrentBar) then
-				button:SetChecked(1)
+				button:SetChecked(true)
 			end
 
 			button.alt = alt
@@ -2221,7 +2220,7 @@ end
 --- OnLoad event for Bar editor Spell Target Options frame
 function NeuronGUI:TargetOptions_OnLoad(frame)
 	--Container Support
-	local content = CreateFrame("Frame",nil, frame)
+	local content = CreateFrame("Frame",nil, frame, BackdropTemplateMixin and "BackdropTemplate")
 	content:SetPoint("TOPLEFT",10,-5 )
 	content:SetPoint("BOTTOMRIGHT",-10,5)
 	--This creats a cusomt AceGUI container which lets us imbed a AceGUI menu into our frame.
@@ -2248,7 +2247,7 @@ end
 function NeuronGUI:FlyoutOptions_OnLoad(frame)
 	--NeuronButtonEditor.options
 	--Container Support
-	local content = CreateFrame("Frame",nil, frame.options)
+	local content = CreateFrame("Frame",nil, frame.options, BackdropTemplateMixin and "BackdropTemplate")
 	content:SetPoint("TOPLEFT",10,-5 )
 	content:SetPoint("BOTTOMRIGHT",-10,5)
 	--This creats a cusomt AceGUI container which lets us imbed a AceGUI menu into our frame.
@@ -2489,7 +2488,7 @@ function NeuronGUI:ActionListScrollFrameUpdate(frame)
 			text = data[count]
 
 			if (bar and stateList[text] == bar.handler:GetAttribute("fauxstate")) then
-				button:SetChecked(1)
+				button:SetChecked(true)
 			end
 
 			button.bar = bar
@@ -2542,7 +2541,7 @@ function NeuronGUI:specUpdateIcon(button,state)
 		end
 
 	else
-		texture = button.elements.IconFrameIcon:GetTexture()
+		texture = button.Icon:GetTexture()
 	end
 	return texture
 end
@@ -2556,6 +2555,10 @@ function NeuronGUI:MacroEditorUpdate()
 
 		if (button.bar.data.multiSpec) then
 			buttonSpec = specoveride
+
+			if buttonSpec > 4 then
+				buttonSpec = 1
+			end
 
 			--Sets spec tab to current spec
 			NBTNE.spec1:SetChecked(false)
@@ -2609,7 +2612,7 @@ function NeuronGUI:MacroEditorUpdate()
 		if (data) then
 			NBTNE.macroedit.edit:SetText(data.macro_Text)
 			if (not data.macro_Icon) then
-				NBTNE.macroicon.icon:SetTexture(NeuronGUI:specUpdateIcon(button, state))--button.elements.IconFrameIcon:GetTexture())
+				NBTNE.macroicon.icon:SetTexture(NeuronGUI:specUpdateIcon(button, state))--button.Icon:GetTexture())
 			elseif (data.macro_Icon == "BLANK") then
 				NBTNE.macroicon.icon:SetTexture("")
 			else
@@ -3043,7 +3046,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 		for tab, panel in pairs(frame.specs) do
 
 			if (tab == cTab) then
-				tab:SetChecked(1)
+				tab:SetChecked(true)
 				if (MouseIsOver(cTab)) then
 					PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
 				end
@@ -3060,7 +3063,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 		for tab, panel in pairs(frame.tabs) do
 
 			if (tab == cTab) then
-				tab:SetChecked(1)
+				tab:SetChecked(true)
 				if (MouseIsOver(cTab)) then
 					PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
 				end
@@ -3082,7 +3085,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 
 	local f
 
-	f = CreateFrame("Frame", nil, frame)
+	f = CreateFrame("Frame", nil, frame, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetPoint("TOPLEFT", frame.actionlist, "TOPRIGHT", 10, -10)
 	f:SetPoint("BOTTOMRIGHT", -10, 10)
 	f:SetScript("OnUpdate", function(self,elapsed) if (self.elapsed == 0) then NeuronGUI:UpdateObjectGUI(true) end self.elapsed = elapsed end)
@@ -3099,7 +3102,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f.edit:SetScript("OnEditFocusLost", function(self)NeuronGUI:macroText_OnEditFocusLost(self) end)
 	frame.macroedit = f
 
-	f = CreateFrame("Button", "focus", frame.macro)
+	f = CreateFrame("Button", "focus", frame.macro, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetPoint("TOPLEFT", frame.macroedit, "TOPLEFT", -10, 10)
 	f:SetPoint("BOTTOMRIGHT", -18, 0)
 	f:SetWidth(350)
@@ -3108,7 +3111,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f.macroedit = frame.macroedit
 	frame.macrofocus = f
 
-	f = CreateFrame("Frame", nil, frame.macroedit)
+	f = CreateFrame("Frame", nil, frame.macroedit, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetPoint("TOPLEFT", -10, 10)
 	f:SetPoint("BOTTOMRIGHT", 4, -20)
 	f:SetFrameLevel(frame.macroedit.edit:GetFrameLevel()-1)
@@ -3135,7 +3138,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f.iconlist:SetScript("OnHide", function() NeuronObjectEditor.done:Show() end)
 	frame.macroicon = f
 
-	f = CreateFrame("Button", nil, frame.macro)
+	f = CreateFrame("Button", nil, frame.macro, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetPoint("BOTTOMLEFT", frame.macroicon, "BOTTOMRIGHT", 2, -7)
 	f:SetWidth(34)
 	f:SetHeight(34)
@@ -3168,7 +3171,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f.tooltipText = L["Display button for specialization 1"]
 	frame.spec1 = f; frame.specs[f] = frame.spec1
 
-	f = CreateFrame("frame", nil, frame.spec1)
+	f = CreateFrame("frame", nil, frame.spec1, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetWidth(20)
 	f:SetHeight(20)
 	f:SetPoint("LEFT",10)
@@ -3222,7 +3225,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f.tooltipText = _G.SAVE
 	frame.savestate = f
 
-	f = CreateFrame("EditBox", nil, frame.macro)
+	f = CreateFrame("EditBox", nil, frame.macro, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetMultiLine(false)
 	f:SetNumeric(false)
 	f:SetAutoFocus(false)
@@ -3243,14 +3246,14 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f.text:SetJustifyH("CENTER")
 	f.text:SetText(L["Macro Name"])
 
-	f = CreateFrame("Frame", nil, frame.nameedit)
+	f = CreateFrame("Frame", nil, frame.nameedit, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetPoint("TOPLEFT", 0, 0)
 	f:SetPoint("BOTTOMRIGHT", 0, 0)
 	f:SetFrameLevel(frame.nameedit:GetFrameLevel()-1)
 
 	NeuronGUI:SubFrameBlackBackdrop_OnLoad(f)
 
-	f = CreateFrame("EditBox", nil, frame.macro)
+	f = CreateFrame("EditBox", nil, frame.macro, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetMultiLine(false)
 	f:SetMaxLetters(50)
 	f:SetNumeric(false)
@@ -3273,7 +3276,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f.text:SetJustifyH("CENTER")
 	f.text:SetText(L["Click here to edit macro note"])
 
-	f = CreateFrame("Frame", nil, frame.noteedit)
+	f = CreateFrame("Frame", nil, frame.noteedit, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetPoint("TOPLEFT", 0, 0)
 	f:SetPoint("BOTTOMRIGHT", 15, 0)
 	f:SetFrameLevel(frame.noteedit:GetFrameLevel()-1)
@@ -3355,7 +3358,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 
 	NeuronGUI:SubFrameBlackBackdrop_OnLoad(f)
 
-	f.cancel = CreateFrame("Button", nil, f)
+	f.cancel = CreateFrame("Button", nil, f, BackdropTemplateMixin and "BackdropTemplate")
 	f.cancel:SetWidth(20)
 	f.cancel:SetHeight(20)
 	f.cancel:SetPoint("RIGHT", -3, 0)
@@ -3434,7 +3437,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f:SetTextInsets(f.text:GetWidth()+5, 0, 0, 0)
 
 
-	f = CreateFrame("Frame", nil, frame)
+	f = CreateFrame("Frame", nil, frame, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetPoint("TOPLEFT", frame.actionlist, "TOPRIGHT", 10, -10)
 	f:SetPoint("BOTTOMRIGHT", -10, 10)
 	f:SetScript("OnUpdate", function(self,elapsed) if (self.elapsed == 0) then NeuronGUI:UpdateObjectGUI(true) end self.elapsed = elapsed end)
@@ -3442,7 +3445,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f.elapsed = 0
 	frame.action = f
 
-	f = CreateFrame("Frame", nil, frame)
+	f = CreateFrame("Frame", nil, frame, BackdropTemplateMixin and "BackdropTemplate")
 	f:SetPoint("TOPLEFT", frame.actionlist, "TOPRIGHT", 10, -25)
 	f:SetPoint("BOTTOMRIGHT", -10, 10)
 	f:SetScript("OnUpdate", function(self,elapsed) if (self.elapsed == 0) then NeuronGUI:UpdateObjectGUI(true) end self.elapsed = elapsed end)
@@ -3460,7 +3463,7 @@ function NeuronGUI:ButtonEditor_OnLoad(frame)
 	f:SetPoint("TOPRIGHT", frame, "TOPLEFT", 287, -10)
 	f:SetScript("OnClick", function(self) TabsOnClick(self) end)
 	f:SetFrameLevel(frame:GetFrameLevel()+1)
-	f:SetChecked(1)
+	f:SetChecked(true)
 	f.text:SetText(L["Macro Data"])
 	frame.tab1 = f; frame.tabs[f] = frame.macro
 
@@ -4168,7 +4171,7 @@ function NeuronGUI:StatusBarEditorUpdate(reset)
 			for i,f in ipairs(sbOpt.types) do
 
 				if (sb.config.sbType == f.sbType) then
-					f:SetChecked(1)
+					f:SetChecked(true)
 				else
 					f:SetChecked(false)
 				end

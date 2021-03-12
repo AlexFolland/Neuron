@@ -54,13 +54,15 @@ function EXTRABTN:SetType()
 
 	self:SetAttribute("type1", "action")
 
-	self:SetAttribute("action1", 169) --baseline actionID for most zoneability actions
+	self:SetAttribute("action1", 169) --baseline actionID for most extra actions
 
+	self:SetSize(52,52)
+	self.Style:SetPoint("CENTER", -2, 0)
 
 	--action content gets set in UpdateData
 	self:UpdateData()
 
-	self:SetScript("PostClick", function(self) self:UpdateStatus() end)
+	self:SetScript("PostClick", function() self:SetChecked(false) end)
 	self:SetScript("OnEnter", function(self) self:UpdateTooltip() end)
 	self:SetScript("OnLeave", GameTooltip_Hide)
 
@@ -71,7 +73,7 @@ function EXTRABTN:OnEvent(event, ...)
 	self:UpdateData()
 
 	if event == "PLAYER_ENTERING_WORLD" then
-		self.binder:ApplyBindings()
+		self.Binder:ApplyBindings()
 		self:UpdateIcon()
 	end
 
@@ -106,7 +108,7 @@ function EXTRABTN:UpdateData()
 	end
 
 	-----------------------
-	self.elements.Name:Hide()
+	self.Name:Hide()
 
 	self:UpdateObjectVisibility()
 	self:UpdateIcon()
@@ -130,15 +132,15 @@ end
 ---overwrite function in parent class BUTTON
 function EXTRABTN:UpdateIcon()
 	local spellTexture = GetSpellTexture(self.spellID)
-	self.elements.IconFrameIcon:SetTexture(spellTexture)
+	self.Icon:SetTexture(spellTexture)
 
 	local texture = GetOverrideBarSkin() or "Interface\\ExtraButton\\Default"
-	self.elements.Flair:SetTexture(texture)
+	self.Style:SetTexture(texture)
 
 	if self.bar.data.showBorderStyle then
-		self.elements.Flair:Show() --this actually show/hide the fancy button theme surrounding the bar. If you wanted to do a toggle for the style, it should be here.
+		self.Style:Show() --this actually show/hide the fancy button theme surrounding the bar. If you wanted to do a toggle for the style, it should be here.
 	else
-		self.elements.Flair:Hide()
+		self.Style:Hide()
 	end
 end
 
