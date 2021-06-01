@@ -1,23 +1,7 @@
---Neuron, a World of Warcraft® user interface addon.
-
---This file is part of Neuron.
---
---Neuron is free software: you can redistribute it and/or modify
---it under the terms of the GNU General Public License as published by
---the Free Software Foundation, either version 3 of the License, or
---(at your option) any later version.
---
---Neuron is distributed in the hope that it will be useful,
---but WITHOUT ANY WARRANTY; without even the implied warranty of
---MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
---GNU General Public License for more details.
---
---You should have received a copy of the GNU General Public License
---along with this add-on.  If not, see <https://www.gnu.org/licenses/>.
---
---Copyright for portions of Neuron are held by Connor Chenoweth,
---a.k.a Maul, 2014 as part of his original project, Ion. All other
---copyrights for Neuron are held by Britt Yazel, 2017-2020.
+-- Neuron is a World of Warcraft® user interface addon.
+-- Copyright (c) 2017-2021 Britt W. Yazel
+-- Copyright (c) 2006-2014 Connor H. Chenoweth
+-- This code is licensed under the MIT license (see LICENSE for details)
 
 ---@class BUTTON : CheckButton @define BUTTON as inheriting from CheckButton
 local BUTTON = setmetatable({}, {__index = CreateFrame("CheckButton")}) --this is the metatable for our button object
@@ -748,12 +732,14 @@ end
 function BUTTON:UpdateUsableSpell()
 	local isUsable, notEnoughMana = IsUsableSpell(self.spell)
 
-	if notEnoughMana  and self.manacolor then
+	if notEnoughMana and self.manacolor then
 		self.Icon:SetVertexColor(self.manacolor[1], self.manacolor[2], self.manacolor[3])
 	elseif isUsable then
-		if self.rangeInd and IsSpellInRange(self.spell, self.unit)==0 then
+		if not self.rangeInd or IsSpellInRange(self.spell, self.unit)==1 then
+			self.Icon:SetVertexColor(1.0, 1.0, 1.0)
+		elseif self.rangeInd and IsSpellInRange(self.spell, self.unit)==0 then
 			self.Icon:SetVertexColor(self.rangecolor[1], self.rangecolor[2], self.rangecolor[3])
-		elseif NeuronSpellCache[self.spell:lower()] and self.rangeInd and IsSpellInRange(NeuronSpellCache[self.spell:lower()].index,"spell", self.unit)==0 then
+		elseif self.rangeInd and NeuronSpellCache[self.spell:lower()] and IsSpellInRange(NeuronSpellCache[self.spell:lower()].index,"spell", self.unit)==0 then
 			self.Icon:SetVertexColor(self.rangecolor[1], self.rangecolor[2], self.rangecolor[3])
 		else
 			self.Icon:SetVertexColor(1.0, 1.0, 1.0)
@@ -769,7 +755,7 @@ function BUTTON:UpdateUsableItem()
 	--for some reason toys don't show as usable items, so this is a workaround for that
 	if not isUsable then
 		local itemID = GetItemInfoInstant(self.item)
-		if not Neuron.isWoWClassic and itemID and PlayerHasToy(itemID) then
+		if not Neuron.isWoWClassic and not Neuron.isWoWClassic_TBC and itemID and PlayerHasToy(itemID) then
 			isUsable = true
 		end
 	end

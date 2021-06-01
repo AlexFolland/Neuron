@@ -1,23 +1,7 @@
---Neuron, a World of Warcraft® user interface addon.
-
---This file is part of Neuron.
---
---Neuron is free software: you can redistribute it and/or modify
---it under the terms of the GNU General Public License as published by
---the Free Software Foundation, either version 3 of the License, or
---(at your option) any later version.
---
---Neuron is distributed in the hope that it will be useful,
---but WITHOUT ANY WARRANTY; without even the implied warranty of
---MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
---GNU General Public License for more details.
---
---You should have received a copy of the GNU General Public License
---along with this add-on.  If not, see <https://www.gnu.org/licenses/>.
---
---Copyright for portions of Neuron are held by Connor Chenoweth,
---a.k.a Maul, 2014 as part of his original project, Ion. All other
---copyrights for Neuron are held by Britt Yazel, 2017-2020.
+-- Neuron is a World of Warcraft® user interface addon.
+-- Copyright (c) 2017-2021 Britt W. Yazel
+-- Copyright (c) 2006-2014 Connor H. Chenoweth
+-- This code is licensed under the MIT license (see LICENSE for details)
 
 
 ---The functions in this file are part of the ACTIONBUTTON class.
@@ -26,7 +10,6 @@
 local ACTIONBUTTON = Neuron.ACTIONBUTTON
 
 local macroDrag = {} --this is a table that holds onto the contents of the  current macro being dragged
-
 local macroCache = {} --this will hold onto any previous contents of our button
 
 --------------------------------------
@@ -38,25 +21,26 @@ function ACTIONBUTTON:OnDragStart()
 		return
 	end
 
-	self.drag = nil --flag that says if it's ok to drag or not
+	Neuron.dragging = true
+
+	local drag = nil --flag that says if it's ok to drag or not
 
 	if not self.barLock then
-		self.drag = true
+		drag = true
 	elseif self.barLockAlt and IsAltKeyDown() then
-		self.drag = true
+		drag = true
 	elseif self.barLockCtrl and IsControlKeyDown() then
-		self.drag = true
+		drag = true
 	elseif self.barLockShift and IsShiftKeyDown() then
-		self.drag = true
+		drag = true
 	end
 
-	if self.drag then
+	if drag then
 
-		ClearCursor()
-
-		--This is all just to put an icon on the mousecursor. Sadly we can't use SetCursor, because once you leave the frame the icon goes away. PickupSpell seems to work, but we need a valid spellID
-		--This trick here is that we ignore what is 'actually' and are just using it for the icon and the sound effects
-		self:SetMouseCursor()
+		--don't run if we have a cache, we will call it manually on the OnReceiveDrag on the new button
+		if #macroCache==0 then
+			self:SetMouseCursor()
+		end
 
 		self:PickUpMacro()
 
@@ -90,7 +74,11 @@ function ACTIONBUTTON:OnReceiveDrag()
 		wipe(macroCache)
 	end
 
-	if macroDrag[1] then --checks to see if the thing we are placing is a Neuron created macro vs something from the spellbook
+	if #macroCache>0 then --if we have a cache, pickup the current icon before replacing it with the new content
+		self:SetMouseCursor()
+	end
+
+	if #macroDrag>0 then --checks to see if the thing we are placing is a Neuron created macro vs something from the spellbook
 		self:PlaceMacro()
 	elseif cursorType == "spell" then
 		self:PlaceSpell(action1, action2, spellID)
@@ -122,14 +110,14 @@ function ACTIONBUTTON:OnReceiveDrag()
 
 	self:SetType()
 	self:UpdateAll()
-	self:UpdateCooldown() --clear any cooldowns that may be on the button now that the button is empty
 
-	if macroCache[1] then
-		self:OnDragStart(macroCache) --If we picked up a new ability after dropping this one we have to manually call OnDragStart
+	if #macroCache>0 then
+		self:OnDragStart() --If we picked up a new ability after dropping this one we have to manually call OnDragStart
 		self:ACTIONBAR_SHOWGRID() --show the button grid if we have something picked up (i.e if macroDrag contains something)
 	else
 		SetCursor(nil)
 		ClearCursor() --if we did not pick up a new spell, clear the cursor
+		Neuron.dragging = false
 	end
 
 	if NeuronObjectEditor and NeuronObjectEditor:IsVisible() then
@@ -139,7 +127,7 @@ end
 
 
 function ACTIONBUTTON:PostClick() --this is necessary because if you are daisy-chain dragging spells to the bar you wont be able to place the last one due to it not firing an OnReceiveDrag
-	if macroDrag[1] then
+	if #macroDrag>0 then
 		self:OnReceiveDrag()
 	end
 	self:UpdateStatus()
@@ -147,11 +135,16 @@ end
 
 --we need to hook to the WorldFrame OnReceiveDrag and OnMouseDown so that we can "let go" of the spell when we drag it off the bar
 function ACTIONBUTTON:WorldFrame_OnReceiveDrag()
-	if macroDrag[1] then --only do something if there's currently data in macroDrag. Otherwise it is just for normal Blizzard behavior
+	if #macroDrag>0 then --only do something if there's currently data in macroDrag. Otherwise it is just for normal Blizzard behavior
 		SetCursor(nil)
 		ClearCursor()
+		Neuron.dragging = false
 		wipe(macroDrag)
 		wipe(macroCache)
+	end
+
+	for _,v in pairs(Neuron.BARIndex) do
+		v:UpdateBarObjectVisibility()
 	end
 end
 --------------------------------------
@@ -217,7 +210,6 @@ function ACTIONBUTTON:PlaceMacro()
 	self.data.macro_UseNote = macroDrag[6]
 	self.data.macro_BlizzMacro = macroDrag[7]
 	self.data.macro_EquipmentSet = macroDrag[8]
-
 end
 
 function ACTIONBUTTON:PlaceSpell(action1, action2, spellID)
@@ -483,8 +475,11 @@ function ACTIONBUTTON:PlaceFlyout(action1, action2)
 	self:UpdateFlyout(true)
 end
 
-
+--This is all just to put an icon on the mouse cursor. Sadly we can't use SetCursor, because once you leave the frame the icon goes away. PickupSpell seems to work, but we need a valid spellID
+--This trick here is that we ignore what is 'actually' and are just using it for the icon and the sound effects
 function ACTIONBUTTON:SetMouseCursor()
+	ClearCursor()
+
 	if self.spell and self.spellID then
 		PickupSpell(self.spellID)
 		if GetCursorInfo() then

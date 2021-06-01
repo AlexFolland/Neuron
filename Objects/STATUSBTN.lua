@@ -1,23 +1,7 @@
---Neuron, a World of Warcraft® user interface addon.
-
---This file is part of Neuron.
---
---Neuron is free software: you can redistribute it and/or modify
---it under the terms of the GNU General Public License as published by
---the Free Software Foundation, either version 3 of the License, or
---(at your option) any later version.
---
---Neuron is distributed in the hope that it will be useful,
---but WITHOUT ANY WARRANTY; without even the implied warranty of
---MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
---GNU General Public License for more details.
---
---You should have received a copy of the GNU General Public License
---along with this add-on.  If not, see <https://www.gnu.org/licenses/>.
---
---Copyright for portions of Neuron are held by Connor Chenoweth,
---a.k.a Maul, 2014 as part of his original project, Ion. All other
---copyrights for Neuron are held by Britt Yazel, 2017-2020.
+-- Neuron is a World of Warcraft® user interface addon.
+-- Copyright (c) 2017-2021 Britt W. Yazel
+-- Copyright (c) 2006-2014 Connor H. Chenoweth
+-- This code is licensed under the MIT license (see LICENSE for details)
 
 ---@class STATUSBTN : BUTTON @define class STATUSBTN inherits from class BUTTON
 local STATUSBTN = setmetatable({}, { __index = Neuron.BUTTON })
@@ -318,7 +302,7 @@ function STATUSBTN:xpDropDown_Initialize() -- initialize the dropdown menu for c
 	})
 
 	--wow classic doesn't have Honor points nor Azerite, carefull
-	if not Neuron.isWoWClassic then
+	if not Neuron.isWoWClassic and not Neuron.isWoWClassic_TBC then
 
 		if C_Covenants.GetActiveCovenantID() ~= 0 then
 			table.insert(menu, {
@@ -460,7 +444,7 @@ function STATUSBTN:repstrings_Update(repGainedString)
 		if (not isHeader or hasRep) and not IsFactionInactive(i) then
 
 			local friendID, standing, isParagon
-			if not Neuron.isWoWClassic then --classic doesn't have Friendships or Paragon, carefull
+			if not Neuron.isWoWClassic and not Neuron.isWoWClassic_TBC  then --classic doesn't have Friendships or Paragon, carefull
 				friendID, _, _, _, _, _, standing, _, _ = GetFriendshipReputation(factionID)
 				isParagon = C_Reputation.IsFactionParagon(factionID)
 			end
@@ -831,7 +815,7 @@ function STATUSBTN:CastBar_OnEvent(event, ...)
 
 		local name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible
 
-		if not Neuron.isWoWClassic then
+		if not Neuron.isWoWClassic and not Neuron.isWoWClassic_TBC then
 			name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = UnitCastingInfo(unit)
 		elseif unit == "player" then
 			name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = CastingInfo() --classic doesn't have UnitCastingInfo()
@@ -895,7 +879,7 @@ function STATUSBTN:CastBar_OnEvent(event, ...)
 
 		local name, text, texture, startTime, endTime, isTradeSkill, notInterruptible
 
-		if not Neuron.isWoWClassic then
+		if not Neuron.isWoWClassic and not Neuron.isWoWClassic_TBC then
 			name, text, texture, startTime, endTime, isTradeSkill, notInterruptible = UnitChannelInfo(unit)
 		elseif unit == "player" then
 			name, text, texture, startTime, endTime, isTradeSkill, notInterruptible = ChannelInfo()
@@ -990,7 +974,7 @@ function STATUSBTN:CastBar_OnEvent(event, ...)
 
 			local name, text, texture, startTime, endTime, isTradeSkill
 
-			if not Neuron.isWoWClassic then
+			if not Neuron.isWoWClassic and not Neuron.isWoWClassic_TBC then
 				name, text, texture, startTime, endTime, isTradeSkill = UnitCastingInfo(unit)
 			elseif unit == "player" then
 				name, text, texture, startTime, endTime, isTradeSkill = CastingInfo() --Classic doesn't have UnitCastingInfo()
@@ -1026,7 +1010,7 @@ function STATUSBTN:CastBar_OnEvent(event, ...)
 
 			local name, text, texture, startTime, endTime, isTradeSkill, notInterruptible
 
-			if not Neuron.isWoWClassic then
+			if not Neuron.isWoWClassic and not Neuron.isWoWClassic_TBC then
 				name, text, texture, startTime, endTime, isTradeSkill, notInterruptible = UnitChannelInfo(unit)
 			elseif unit == "player" then
 				name, text, texture, startTime, endTime, isTradeSkill, notInterruptible = ChannelInfo()
@@ -1875,7 +1859,7 @@ function STATUSBTN:SetType()
 		self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", "CastBar_OnEvent")
 		self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", "CastBar_OnEvent")
 
-		if not Neuron.isWoWClassic then
+		if not Neuron.isWoWClassic and not Neuron.isWoWClassic_TBC then
 			self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTIBLE", "CastBar_OnEvent")
 			self:RegisterEvent("UNIT_SPELLCAST_NOT_INTERRUPTIBLE", "CastBar_OnEvent")
 		end
@@ -1913,7 +1897,7 @@ function STATUSBTN:SetType()
 		self:RegisterEvent("PLAYER_ENTERING_WORLD", "XPBar_OnEvent")
 		self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", "XPBar_OnEvent")
 
-		if not Neuron.isWoWClassic then
+		if not Neuron.isWoWClassic and not Neuron.isWoWClassic_TBC then
 			self:RegisterEvent("HONOR_XP_UPDATE", "XPBar_OnEvent")
 			self:RegisterEvent("COVENANT_SANCTUM_RENOWN_LEVEL_CHANGED", "XPBar_OnEvent")
 			self:RegisterEvent("AZERITE_ITEM_EXPERIENCE_CHANGED", "XPBar_OnEvent")
