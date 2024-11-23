@@ -6,6 +6,8 @@
 local _, addonTable = ...
 local Neuron = addonTable.Neuron
 
+local GetSpellTexture = GetSpellTexture or (C_Spell and C_Spell.GetSpellTexture)
+
 ---@class ExtraButton : Button @define class ExtraButton inherits from class Button
 local ExtraButton = setmetatable({}, { __index = Neuron.Button })
 Neuron.ExtraButton = ExtraButton
@@ -126,8 +128,11 @@ end
 
 --overwrite function in parent class Button
 function ExtraButton:UpdateIcon()
-	local spellTexture = GetSpellTexture(self.spellID)
-	self.Icon:SetTexture(spellTexture)
+	local spellTexture
+	if self.spellID then
+		spellTexture = GetSpellTexture(self.spellID)
+		self.Icon:SetTexture(spellTexture)
+	end
 
 	local texture = GetOverrideBarSkin() or "Interface\\ExtraButton\\Default"
 	self.Style:SetTexture(texture)

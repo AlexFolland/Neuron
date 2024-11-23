@@ -3,6 +3,13 @@
 -- Copyright (c) 2006-2014 Connor H. Chenoweth
 -- This code is licensed under the MIT license (see LICENSE for details)
 
+local GetSpellInfo = GetSpellInfo or (C_Spell and function (spell)
+	local spellInfo = C_Spell.GetSpellInfo(spell)
+	if spellInfo then
+		return spellInfo.name, nil, spellInfo.iconID, spellInfo.castTime, spellInfo.minRange, spellInfo.maxRange, spellInfo.spellID, spellInfo.originalIconID
+	end
+end)
+
 local _, addonTable = ...
 
 addonTable.overlay = addonTable.overlay or {}

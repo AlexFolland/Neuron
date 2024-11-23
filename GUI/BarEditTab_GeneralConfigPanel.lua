@@ -735,7 +735,7 @@ function NeuronGUI:DeleteBarPopup()
 		button2 = CANCEL,
 		timeout = 0,
 		whileDead = true,
-		OnAccept = function() Neuron.currentBar:DeleteBar(); NeuronGUI:RefreshEditor() end,
+		OnAccept = function() if Neuron.currentBar then Neuron.currentBar:DeleteBar() end; NeuronGUI:RefreshEditor() end,
 		OnCancel = function() NeuronGUI:RefreshEditor() end,
 	}
 	StaticPopup_Show("Delete_Bar_Popup")

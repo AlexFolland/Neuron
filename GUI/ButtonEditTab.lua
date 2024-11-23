@@ -174,7 +174,7 @@ function NeuronGUI:ButtonsEditPanel(topContainer)
 	local multiSpec = Neuron.currentButton.bar:GetMultiSpec()
 
 	local specs = Spec.names(multiSpec)
-	specs[5] =  L["No Spec"]
+	specs[5] = L["No Spec"]
 
 	for specIndex, specName in pairs(specs) do
 		local specData = Neuron.currentButton.DB[specIndex]
@@ -223,7 +223,7 @@ function NeuronGUI:ButtonsEditPanel(topContainer)
 		specButtonTree:SelectByValue("homestate")
 
 		-- make sure to do this last, or the size of the scroll box
-		-- might be smaller than it's contents
+		-- might be smaller than its contents
 		topContainer:AddChild(specButtonTree)
 	end
 end

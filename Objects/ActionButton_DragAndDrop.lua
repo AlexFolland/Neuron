@@ -6,12 +6,43 @@
 local _, addonTable = ...
 local Neuron = addonTable.Neuron
 
+local PickupItem = PickupItem or C_Item.PickupItem
+local PickupSpell = PickupSpell or C_Spell.PickupSpell
+local GetItemInfoInstant = GetItemInfoInstant or (C_Item and C_Item.GetItemInfoInstant)
+local IsEquippableItem = IsEquippableItem or C_Item.IsEquippableItem
+local GetSpellInfo = GetSpellInfo or (C_Spell and function (spell)
+	local spellInfo = C_Spell.GetSpellInfo(spell)
+	if spellInfo then
+		return spellInfo.name, nil, spellInfo.iconID, spellInfo.castTime, spellInfo.minRange, spellInfo.maxRange, spellInfo.spellID, spellInfo.originalIconID
+	end
+end)
+local GetItemInfo = GetItemInfo or (C_Item and C_Item.GetItemInfo)
+local GetSpellBookItemName = GetSpellBookItemName or (C_SpellBook and function(index, bookType)
+	return C_SpellBook.GetSpellBookItemName(index, (bookType == "pet") and Enum.SpellBookSpellBank.Pet or Enum.SpellBookSpellBank.Player)
+end)
+local GetSpellBookItemInfo = GetSpellBookItemInfo or (C_SpellBook and function(index, bookType)
+	local spellType, id
+	local spellBookItemInfo = C_SpellBook.GetSpellBookItemInfo(index, (bookType == "pet") and Enum.SpellBookSpellBank.Pet or Enum.SpellBookSpellBank.Player)
+	if spellBookItemInfo then
+		if spellBookItemInfo.itemType == Enum.SpellBookItemType.Spell then
+			spellType = "SPELL"
+		elseif spellBookItemInfo.itemType == Enum.SpellBookItemType.FutureSpell then
+			spellType = "FUTURESPELL"
+		elseif spellBookItemInfo.itemType == Enum.SpellBookItemType.PetAction then
+			spellType = "PETACTION"
+		elseif spellBookItemInfo.itemType == Enum.SpellBookItemType.Flyout then
+			spellType = "FLYOUT"
+		end
+		return spellType, spellBookItemInfo.actionID
+	end
+end)
+
 ---The functions in this file are part of the ActionButton class.
 ---It was just easier to put them all in their own file for organization.
 
 local ActionButton = Neuron.ActionButton
 
-local macroDrag = {} --this is a table that holds onto the contents of the  current macro being dragged
+local macroDrag = {} --this is a table that holds onto the contents of the current macro being dragged
 local macroCache = {} --this will hold onto any previous contents of our button
 
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
@@ -39,7 +70,7 @@ function ActionButton:OnDragStart()
 		drag = false
 	end
 
-	if drag and self:GetMacroText() ~= "" then
+	if drag and self:HasMacroText() then
 		Neuron.dragging = true
 
 		if #macroCache==0 then --don't run if we have a cache, we will call it manually on the OnReceiveDrag on the new button
@@ -68,7 +99,7 @@ function ActionButton:OnReceiveDrag()
 
 	local cursorType, action1, action2, spellID = GetCursorInfo()
 
-	if self:HasAction() then --if our button being dropped onto already has content, we need to cache that content
+	if self:HasMacroText() then --if our button being dropped onto already has content, we need to cache that content
 		macroCache[1] = self:GetDragAction()
 		macroCache[2] = self:GetMacroText()
 		macroCache[3] = self:GetMacroIcon()
@@ -172,7 +203,7 @@ function ActionButton:PickUpMacro()
 		macroDrag = CopyTable(macroCache)
 		wipe(macroCache) --once macroCache is loaded into macroDrag, wipe it
 
-	elseif self:HasAction() then
+	elseif self:HasMacroText() then
 
 		macroDrag[1] = self:GetDragAction()
 		macroDrag[2] = self:GetMacroText()
@@ -240,7 +271,7 @@ function ActionButton:PlaceSpell(action1, action2, spellID)
 
 	self:SetMacroText(self:AutoWriteMacro(spell))
 	self:SetMacroIcon() --will pull icon automatically unless explicitly overridden
-	self:SetMacroName(spellName)
+	-- self:SetMacroName(spellName) --commented this out because it's annoying
 	self:SetMacroNote()
 	self:SetMacroUseNote()
 	self:SetMacroBlizzMacro()
@@ -257,7 +288,7 @@ function ActionButton:PlacePetAbility(action1, action2)
 
 		self:SetMacroText(self:AutoWriteMacro(spellInfoName))
 		self:SetMacroIcon() --will pull icon automatically unless explicitly overridden
-		self:SetMacroName(spellInfoName)
+		-- self:SetMacroName(spellInfoName) --annoying
 		self:SetMacroNote()
 		self:SetMacroUseNote()
 		self:SetMacroBlizzMacro()
@@ -284,7 +315,7 @@ function ActionButton:PlaceItem(action1, action2)
 	end
 
 	self:SetMacroIcon() --will pull icon automatically unless explicitly overridden
-	self:SetMacroName(item)
+	-- self:SetMacroName(item) --annoying
 	self:SetMacroNote()
 	self:SetMacroUseNote()
 	self:SetMacroBlizzMacro()
@@ -372,13 +403,14 @@ function ActionButton:PlaceMount(action1, action2)
 
 	--The Summon Random Mount from the Mount Journal
 	if action1 == 268435455 then
-		self:SetMacroText("#autowrite\n/run C_MountJournal.SummonByID(0);")
+		-- self:SetMacroText("#autowrite\n/run C_MountJournal.SummonByID(0);")
+		self:SetMacroText("/run C_MountJournal.SummonByID(0);") --no more "#autowrite" lines because they're unused now and annoying
 		self:SetMacroIcon("Interface\\ICONS\\ACHIEVEMENT_GUILDPERK_MOUNTUP")
 		self:SetMacroName("Random Mount")
 	else
 		self:SetMacroText(self:AutoWriteMacro(mountSpell))
 		self:SetMacroIcon() --will pull icon automatically unless explicitly overridden
-		self:SetMacroName(mountName)
+		-- self:SetMacroName(mountName) annoying
 	end
 	self:SetMacroNote()
 	self:SetMacroUseNote()
@@ -396,7 +428,7 @@ function ActionButton:PlaceCompanion(action1, action2)
 	local name = GetSpellInfo(spellID)
 
 	if name then
-		self:SetMacroName(name)
+		-- self:SetMacroName(name) --annoying
 		self:SetMacroText(self:AutoWriteMacro(name))
 	else
 		self:SetMacroName()
@@ -417,9 +449,10 @@ function ActionButton:PlaceBattlePet(action1, action2)
 
 	local _, _, _, _, _, _, _,petName, petIcon= C_PetJournal.GetPetInfoByPetID(action1)
 
-	self:SetMacroText("#autowrite\n/summonpet "..petName)
+	-- self:SetMacroText("#autowrite\n/summonpet "..petName)
+	self:SetMacroText("/summonpet "..petName) --no more "#autowrite" lines because they're unused now and annoying
 	self:SetMacroIcon(petIcon) --need to set icon here, it won't pull it automatically
-	self:SetMacroName(petName)
+	-- self:SetMacroName(petName) --commented out because this is annoying
 	self:SetMacroNote()
 	self:SetMacroUseNote()
 	self:SetMacroBlizzMacro()
@@ -495,9 +528,11 @@ function ActionButton:SetMouseCursor()
 			return
 		end
 
-		PickupItem(GetItemInfoInstant(self.item))
-		if GetCursorInfo() then
-			return
+		if not C_Item then
+			PickupItem(GetItemInfoInstant(self.item))
+			if GetCursorInfo() then
+				return
+			end
 		end
 
 		if Neuron.itemCache[self.item:lower()] then --try to pull the spellID from our ItemCache as a last resort
@@ -508,6 +543,10 @@ function ActionButton:SetMouseCursor()
 		end
 	end
 
-	--failsafe so there is 'something' on the mouse cursor
-	PickupItem(1217) --questionmark symbol
+	--failsafe so there is something on the mouse cursor
+	if self:HasMacroText() then
+		PickupItem(40725) --gear icon
+	else
+		PickupItem(1217) --question mark icon
+	end
 end

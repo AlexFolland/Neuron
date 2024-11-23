@@ -6,6 +6,13 @@
 local _, addonTable = ...
 local Neuron = addonTable.Neuron
 
+local GetItemInfoInstant = GetItemInfoInstant or (C_Item and C_Item.GetItemInfoInstant)
+local IsItemInRange = IsItemInRange or (C_Item and C_Item.IsItemInRange)
+local IsSpellInRange = IsSpellInRange or (C_Spell and C_Spell.IsSpellInRange)
+local IsCurrentSpell = IsCurrentSpell or (C_Spell and C_Spell.IsCurrentSpell)
+local IsAutoRepeatSpell = IsAutoRepeatSpell or (C_Spell and C_Spell.IsAutoRepeatSpell)
+local GetSpellCount = GetSpellCount or (C_Spell and C_Spell.GetSpellCastCount)
+
 ---@class NeuronButton : CheckButton @define Button as inheriting from CheckButton
 local Button = setmetatable({}, {__index = CreateFrame("CheckButton")}) --this is the metatable for our button object
 Neuron.Button = Button
@@ -126,7 +133,7 @@ function Button:SetCooldownTimer(start, duration, enable, modrate, showCountdown
 		return
 	end
 
-	if start and start > 0 and duration > 0 and enable > 0 then
+	if start and start > 0 and duration > 0 and (((type(enable) == "number") and enable > 0) or ((type(enable) == "boolean") and enable)) then
 
 		if duration > 2 then --sets non GCD cooldowns
 			if charges and charges > 0 and maxCharges > 1 then
@@ -332,6 +339,10 @@ function Button:SetSkinned(flyout)
 	end
 end
 
+function Button:HasMacroText()
+	return (self.data.macro_Text and self.data.macro_Text ~= '')
+end
+
 function Button:HasAction()
 	if self.actionID then
 		if self.actionID == 0 then
@@ -494,7 +505,16 @@ end
 
 ---Updates the buttons "count", i.e. the spell charges
 function Button:UpdateSpellCount()
-	local charges, maxCharges = GetSpellCharges(self.spell)
+	local charges, maxCharges
+	if GetSpellCharges then
+		charges, maxCharges = GetSpellCharges(self.spell)
+	else
+		local spellChargeInfo = C_Spell.GetSpellCharges(self.spell)
+		if spellChargeInfo then
+			charges = spellChargeInfo.currentCharges
+			maxCharges = spellChargeInfo.maxCharges
+		end
+	end
 	local count = GetSpellCount(self.spell)
 
 	if maxCharges and maxCharges > 1 then
@@ -548,8 +568,31 @@ end
 
 function Button:UpdateSpellCooldown()
 	if self.spell and self.isShown then
-		local start, duration, enable, modrate = GetSpellCooldown(self.spell)
-		local charges, maxCharges, chStart, chDuration, chargemodrate = GetSpellCharges(self.spell)
+		local start, duration, enable, modrate
+		if GetSpellCooldown then
+			start, duration, enable, modrate = GetSpellCooldown(self.spell)
+		else
+			local spellCooldownInfo = C_Spell.GetSpellCooldown(self.spell)
+			if spellCooldownInfo then
+				start = spellCooldownInfo.startTime
+				duration = spellCooldownInfo.duration
+				enable = spellCooldownInfo.isEnabled
+				modrate = spellCooldownInfo.modRate
+			end
+		end
+		local charges, maxCharges, chStart, chDuration, chargemodrate
+		if GetSpellCharges then
+			charges, maxCharges, chStart, chDuration, chargemodrate = GetSpellCharges(self.spell)
+		else
+			local spellChargeInfo = C_Spell.GetSpellCharges(self.spell)
+			if spellChargeInfo then
+				charges = spellChargeInfo.currentCharges
+				maxCharges = spellChargeInfo.maxCharges
+				chStart = spellChargeInfo.cooldownStartTime
+				chDuration = spellChargeInfo.cooldownDuration
+				chargemodrate = spellChargeInfo.chargeModRate
+			end
+		end
 
 		if charges and maxCharges and maxCharges > 0 and charges < maxCharges then
 			self:SetCooldownTimer(chStart, chDuration, enable, chargemodrate, self.bar:GetShowCooldownText(), self.bar:GetCooldownColor1(), self.bar:GetCooldownColor2(), self.bar:GetShowCooldownAlpha(), charges, maxCharges) --only evoke charge cooldown (outer border) if charges are present and less than maxCharges (this is the case with the GCD)
@@ -606,9 +649,15 @@ function Button:UpdateUsable()
 end
 
 function Button:UpdateUsableSpell()
-	local isUsable, notEnoughMana = IsUsableSpell(self.spell)
+	local isUsable, insufficientPower
+	if IsUsableSpell then
+		isUsable, insufficientPower = IsUsableSpell(self.spell)
+	else
+		isUsable, insufficientPower = C_Spell.IsSpellUsable(self.spell)
+	end
 
-	if notEnoughMana and self.bar:GetManaColor() then
+
+	if insufficientPower and self.bar:GetManaColor() then
 		self.Icon:SetVertexColor(self.bar:GetManaColor()[1], self.bar:GetManaColor()[2], self.bar:GetManaColor()[3])
 	elseif isUsable then
 		if self.bar:GetShowRangeIndicator() and IsSpellInRange(self.spell, self.unit) == 0 then
@@ -624,7 +673,12 @@ function Button:UpdateUsableSpell()
 end
 
 function Button:UpdateUsableItem()
-	local isUsable, notEnoughMana = IsUsableItem(self.item)
+	local isUsable, insufficientPower
+	if IsUsableItem then
+		isUsable, insufficientPower = IsUsableItem(self.item)
+	else
+		isUsable, insufficientPower = C_Item.IsUsableItem(self.item)
+	end
 
 	--for some reason toys don't show as usable items, so this is a workaround for that
 	if not isUsable then
@@ -634,7 +688,7 @@ function Button:UpdateUsableItem()
 		end
 	end
 
-	if notEnoughMana and self.bar:GetManaColor() then
+	if insufficientPower and self.bar:GetManaColor() then
 		self.Icon:SetVertexColor(self.bar:GetManaColor()[1], self.bar:GetManaColor()[2], self.bar:GetManaColor()[3])
 	elseif isUsable then
 		if self.bar:GetShowRangeIndicator() and IsItemInRange(self.item, self.unit) == 0 then

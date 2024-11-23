@@ -137,7 +137,7 @@ function NeuronGUI:CreateIconSelectorInternals()
 		iconFrame:SetCallback("OnClick", function()
 			Neuron.currentButton:SetMacroIcon(iconList[i])
 			Neuron.currentButton:UpdateIcon()
-			NeuronGUI:RefreshIconPreview()
+			NeuronGUI:RefreshEditor()
 		end)
 		iconScroll:AddChild(iconFrame)
 	end

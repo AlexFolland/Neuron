@@ -243,17 +243,22 @@ function PetButton:UpdateStatus()
 		self.AutoCastable:Hide()
 	end
 
-	if enabled then
-		self.Shine:Show()
-		AutoCastShine_AutoCastStart(self.Shine)
-		self.AutoCastable:Hide()
-	else
-		self.Shine:Hide()
-		AutoCastShine_AutoCastStop(self.Shine)
+	if AutoCastShine_AutoCastStart then
+		if enabled then
+			self.Shine:Show()
+			AutoCastShine_AutoCastStart(self.Shine)
+			self.AutoCastable:Hide()
+		else
+			self.Shine:Hide()
+			AutoCastShine_AutoCastStop(self.Shine)
 
-		if allowed then
-			self.AutoCastable:Show()
+			if allowed then
+				self.AutoCastable:Show()
+			end
 		end
+	else
+		self.AutoCastOverlay:SetShown(allowed)
+		self.AutoCastOverlay:ShowAutoCastEnabled(enabled)
 	end
 
 	self:UpdateUsable()

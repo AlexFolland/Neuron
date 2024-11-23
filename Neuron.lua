@@ -3,8 +3,9 @@
 -- Copyright (c) 2006-2014 Connor H. Chenoweth
 -- This code is licensed under the MIT license (see LICENSE for details)
 
-
 local _, addonTable = ...
+
+local IsAddOnLoaded = IsAddOnLoaded or (C_AddOns and C_AddOns.IsAddOnLoaded)
 
 local Spec = addonTable.utilities.Spec
 local DBFixer = addonTable.utilities.DBFixer
@@ -285,35 +286,79 @@ end
 --- "()" indexes added because the Blizzard macro parser uses that to determine the difference of a spell versus a usable item if the two happen to have the same name.
 --- I forgot this fact and removed using "()" and it made some macros not represent the right spell /sigh. This note is here so I do not forget again :P - Maul
 
-
 --- Scans Character Spell Book and creates a table of all known spells.  This table is used to refrence macro spell info to generate tooltips and cooldowns.
 ---	If a spell is not displaying its tooltip or cooldown, then the spell in the macro probably is not in the database
 function Neuron:UpdateSpellCache()
 	local sIndexMax = 0
-	local numTabs = GetNumSpellTabs()
+	local numTabs
+	if _G.GetNumSpellTabs then
+		numTabs = GetNumSpellTabs()
+	else
+		numTabs = C_SpellBook.GetNumSpellBookSkillLines()
+	end
 
 	for i=1,numTabs do
-		local _, _, _, numSlots = GetSpellTabInfo(i)
+		local numSlots
+		if GetSpellTabInfo then
+			_, _, _, numSlots = GetSpellTabInfo(i)
+		else
+			numSlots = C_SpellBook.GetSpellBookSkillLineInfo(i).numSpellBookItems
+		end
 
 		sIndexMax = sIndexMax + numSlots
 	end
 
 	for i = 1,sIndexMax do
-		local spellName, _ = GetSpellBookItemName(i, BOOKTYPE_SPELL) --this returns the baseSpell name, even if it is augmented by talents. I.e. Roll and Chi Torpedo
-		local spellType, spellID = GetSpellBookItemInfo(i, BOOKTYPE_SPELL)
-		local isPassive
-		if spellName then
-			isPassive = IsPassiveSpell(i, BOOKTYPE_SPELL)
+		local spellName, spellType, spellID, isPassive, icon
+		if _G.GetSpellBookItemName then
+			spellName, _ = GetSpellBookItemName(i, BOOKTYPE_SPELL) --this returns the baseSpell name, even if it is augmented by talents. I.e. Roll and Chi Torpedo
+		else
+			spellName = C_SpellBook.GetSpellBookItemName(i, Enum.SpellBookSpellBank.Player)
 		end
-		local icon = GetSpellTexture(spellID)
+		if _G.GetSpellBookItemInfo then
+			spellType, spellID = GetSpellBookItemInfo(i, BOOKTYPE_SPELL)
+			if spellName then
+				isPassive = IsPassiveSpell(i, BOOKTYPE_SPELL)
+			end
+			icon = GetSpellTexture(spellID)
+		else
+			local spellInfo = C_SpellBook.GetSpellBookItemInfo(i, Enum.SpellBookSpellBank.Player)
+			spellType = spellInfo.itemType
+			spellID = spellInfo.actionID
+			isPassive = spellInfo.isPassive
+			icon = spellInfo.iconID
+		end
 
 		local altName
 		local altSpellID
 		local altIcon
 
-		if (spellName and spellType ~= "FUTURESPELL") and not isPassive then
+		if (
+			spellName and (
+				(
+					Enum.SpellBookItemType and Enum.SpellBookItemType.FutureSpell and (
+						spellType ~= Enum.SpellBookItemType.FutureSpell
+					)
+				) or (
+					(
+						type(spellType) == "string"
+					) and (
+						spellType ~= "FUTURESPELL"
+					)
+				)
+			)
+		) and not isPassive then
 
-			altName, _, altIcon, _, _, _, altSpellID = GetSpellInfo(spellName)
+			if _G.GetSpellInfo then
+				altName, _, altIcon, _, _, _, altSpellID = GetSpellInfo(spellName)
+			else
+				local altSpellInfo = C_Spell.GetSpellInfo(spellName)
+				if altSpellInfo then
+					altSpellID = altSpellInfo.spellID
+					altName = altSpellInfo.name
+					altIcon = altSpellInfo.iconID
+				end
+			end
 
 			if spellID == altSpellID then
 				altSpellID = nil
@@ -321,14 +366,14 @@ function Neuron:UpdateSpellCache()
 				altIcon = nil
 			end
 
-			local spellData = Neuron:SetSpellInfo(i, BOOKTYPE_SPELL, spellType, spellName, spellID, icon, altName, altSpellID, altIcon)
+			local spellData = Neuron:SetSpellInfo(i, BOOKTYPE_SPELL or Enum.SpellBookSpellBank.Player, spellType, spellName, spellID, icon, altName, altSpellID, altIcon)
 
 			Neuron.spellCache[(spellName):lower()] = spellData
 			Neuron.spellCache[(spellName):lower().."()"] = spellData
 
 
 			--reverse main and alt so we can put both in the table accurately
-			local altSpellData = Neuron:SetSpellInfo(i, BOOKTYPE_SPELL, spellType, altName, altSpellID, altIcon, spellName, spellID, icon)
+			local altSpellData = Neuron:SetSpellInfo(i, BOOKTYPE_SPELL or Enum.SpellBookSpellBank.Player, spellType, altName, altSpellID, altIcon, spellName, spellID, icon)
 
 			if altName and altName ~= spellName then
 				Neuron.spellCache[(altName):lower()] = altSpellData
@@ -348,13 +393,40 @@ function Neuron:UpdateSpellCache()
 				for j=1,numSpells do
 
 					local offsetIndex = j + spelloffset
-					local spellName, _ = GetSpellBookItemName(offsetIndex, BOOKTYPE_PROFESSION)
-					local spellType, spellID = GetSpellBookItemInfo(offsetIndex, BOOKTYPE_PROFESSION)
-					local icon
+					local spellName, spellType, spellID, icon
+					if _G.GetSpellBookItemName then
+						spellName, _ = GetSpellBookItemName(offsetIndex, BOOKTYPE_PROFESSION) --this returns the baseSpell name, even if it is augmented by talents. I.e. Roll and Chi Torpedo
+					else
+						spellName = C_SpellBook.GetSpellBookItemName(offsetIndex, Enum.SpellBookSpellBank.Player)
+					end
+					if _G.GetSpellBookItemInfo then
+						spellType, spellID = GetSpellBookItemInfo(offsetIndex, BOOKTYPE_PROFESSION)
+					else
+						local spellInfo = C_SpellBook.GetSpellBookItemInfo(offsetIndex, Enum.SpellBookSpellBank.Player)
+						spellType = spellInfo.itemType
+						spellID = spellInfo.actionID
+						icon = spellInfo.iconID
+					end
 
-					if spellName and spellType ~= "FUTURESPELL" then
-						icon = GetSpellTexture(spellID)
-						local spellData = Neuron:SetSpellInfo(offsetIndex, BOOKTYPE_PROFESSION, spellType, spellName, spellID, icon,nil,  nil, nil)
+					if (
+						spellName and (
+							(
+								Enum.SpellBookItemType and Enum.SpellBookItemType.FutureSpell and (
+									spellType ~= Enum.SpellBookItemType.FutureSpell
+								)
+							) or (
+								(
+									type(spellType) == "string"
+								) and (
+									spellType ~= "FUTURESPELL"
+								)
+							)
+						)
+					) then
+						if (not icon) and (_G.GetSpellTexture) then
+							icon = GetSpellTexture(spellID)
+						end
+						local spellData = Neuron:SetSpellInfo(offsetIndex, BOOKTYPE_PROFESSION or Enum.SpellBookSpellBank.Player, spellType, spellName, spellID, icon,nil,  nil, nil)
 
 						Neuron.spellCache[(spellName):lower()] = spellData
 						Neuron.spellCache[(spellName):lower().."()"] = spellData

@@ -6,6 +6,15 @@
 local _, addonTable = ...
 local Neuron = addonTable.Neuron
 
+local GetSpellTexture = GetSpellTexture or (C_Spell and C_Spell.GetSpellTexture)
+local GetSpellInfo = GetSpellInfo or (C_Spell and function (spell)
+	local spellInfo = C_Spell.GetSpellInfo(spell)
+	if spellInfo then
+		return spellInfo.name, nil, spellInfo.iconID, spellInfo.castTime, spellInfo.minRange, spellInfo.maxRange, spellInfo.spellID, spellInfo.originalIconID
+	end
+end)
+local GetItemInfo = GetItemInfo or (C_Item and C_Item.GetItemInfo)
+
 local Spec = addonTable.utilities.Spec
 
 ---@class ActionButton : Button @define class ActionButton inherits from class Button
@@ -170,7 +179,7 @@ function ActionButton:InitializeButton()
 							if (self:GetAttribute("*macrotext*") and #self:GetAttribute("*macrotext*") > 0) or self:GetAttribute("showGrid") then
 								self:Show()
 							else
-								self:Hide()
+								-- self:Hide()
 							end
 							self:SetAttribute("HasActionID", false)
 
@@ -602,7 +611,7 @@ function ActionButton:AutoWriteMacro(spell)
 		modifier = modifier.."[] "
 	end
 
-	return "#autowrite\n/cast"..modifier..spell.."()"
+	return "/cast"..modifier..spell.."()"
 end
 
 function ActionButton:GetPosition(relFrame)
@@ -780,8 +789,9 @@ function ActionButton.ExtractMacroData(macro)
 		if abilityOrItem and #abilityOrItem > 0 and command:find("/castsequence") then --this always will set the button info the next ability or item in the sequence
 			_, item, spell = QueryCastSequence(abilityOrItem) --it will only ever return as either item or spell, never both
 		elseif abilityOrItem and #abilityOrItem > 0 then
-			if Neuron.itemCache[abilityOrItem:lower()] then --if our abilityOrItem is actually an item in our cache, amend it as such
-				item = abilityOrItem
+			local cachedItem = Neuron.itemCache[abilityOrItem:lower()]
+			if cachedItem then --if our abilityOrItem is actually an item in our cache, amend it as such
+				item = cachedItem
 			elseif GetItemInfo(abilityOrItem) then
 				item = abilityOrItem
 			elseif tonumber(abilityOrItem) and GetInventoryItemLink("player", abilityOrItem) then --in case abilityOrItem is a number and corresponds to a valid inventory item
@@ -890,6 +900,9 @@ function ActionButton:GetAppearance(data)
 	-- macro must go after spells and items, for blizz macro #showtooltip to work
 	elseif data.macro_Icon then
 		texture, border = data.macro_Icon, nil
+	elseif data.macro_Text and (not (data.macro_Text == '')) then
+		-- print("macro with no icon! text: "..tostring(data.macro_Text))
+		texture, border = "interface/icons/Trade_engineering", nil
 	else
 		texture, border = nil, nil
 	end
@@ -941,7 +954,14 @@ end
 function ActionButton.GetItemAppearance(item)
 	local border = nil
 	---@type number|string|nil
-	local texture = GetItemIcon(item)
+	local texture
+	if C_Item and C_Item.GetItemIconByID then
+		texture = C_Item.GetItemIconByID(item)
+	end
+
+	if (not texture) and GetItemIcon then
+		texture = GetItemIcon(item)
+	end
 
 	if not texture then
 		if Neuron.itemCache[item:lower()] then

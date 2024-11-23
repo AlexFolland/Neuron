@@ -71,7 +71,7 @@ local ButtonEditor= {
 		overlay.frame:SetScript("OnLeave", function() onLeave(overlay) end)
 		overlay.frame:SetScript("OnClick", function() onClick(overlay) end)
 
-		overlay.frame.label:SetText(L["Edit"])
+		-- overlay.frame.label:SetText(L["Edit"]) -- commented out because hiding all the icons with "Edit" text is annoying
 
 		if recticle == "corners" then
 			overlay.frame.select.Left:Hide()

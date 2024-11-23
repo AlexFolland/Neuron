@@ -123,7 +123,7 @@ local function guiOptions()
 	for bar, _ in pairs(changes) do
 		args[bar] = {
 			order = 2,
-			name = Neuron.registeredBarData[bar].barLabel,
+			name = Neuron.registeredBarData[bar] and Neuron.registeredBarData[bar].barLabel or "unknown",
 			desc = L["Shows / Hides the Default Blizzard UI"],
 			type = "toggle",
 			set = function(_, value)

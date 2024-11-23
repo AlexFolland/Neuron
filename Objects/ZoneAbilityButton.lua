@@ -6,6 +6,8 @@
 local _, addonTable = ...
 local Neuron = addonTable.Neuron
 
+local GetSpellTexture = GetSpellTexture or (C_Spell and C_Spell.GetSpellTexture)
+
 ---@class ZoneAbilityButton : Button @define class ZoneAbilityButton inherits from class Button
 local ZoneAbilityButton = setmetatable({}, {__index = Neuron.Button}) --this is the metatable for our button object
 Neuron.ZoneAbilityButton = ZoneAbilityButton
@@ -130,8 +132,12 @@ end
 
 --overwrite function in parent class Button
 function ZoneAbilityButton:UpdateIcon()
-	local spellTexture = GetSpellTexture(self.spellID)
-	self.Icon:SetTexture(spellTexture);
+
+	local spellTexture
+	if self.spellID then
+		spellTexture = GetSpellTexture(self.spellID)
+		self.Icon:SetTexture(spellTexture)
+	end
 
 	local texture = self.textureKit or "Interface\\ExtraButton\\GarrZoneAbility-Armory"
 
