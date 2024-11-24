@@ -12,6 +12,13 @@ local IsSpellInRange = IsSpellInRange or (C_Spell and C_Spell.IsSpellInRange)
 local IsCurrentSpell = IsCurrentSpell or (C_Spell and C_Spell.IsCurrentSpell)
 local IsAutoRepeatSpell = IsAutoRepeatSpell or (C_Spell and C_Spell.IsAutoRepeatSpell)
 local GetSpellCount = GetSpellCount or (C_Spell and C_Spell.GetSpellCastCount)
+local GetSpellInfo = GetSpellInfo or (C_Spell and function (spell)
+	local spellInfo = C_Spell.GetSpellInfo(spell)
+	if spellInfo then
+		return spellInfo.name, nil, spellInfo.iconID, spellInfo.castTime, spellInfo.minRange, spellInfo.maxRange, spellInfo.spellID, spellInfo.originalIconID
+	end
+end)
+local GetItemInfo = GetItemInfo or (C_Item and C_Item.GetItemInfo)
 
 ---@class NeuronButton : CheckButton @define Button as inheriting from CheckButton
 local Button = setmetatable({}, {__index = CreateFrame("CheckButton")}) --this is the metatable for our button object
